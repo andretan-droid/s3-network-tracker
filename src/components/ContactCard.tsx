@@ -1,5 +1,5 @@
 import type { Contact } from '../types';
-import { FREQUENCY_LABELS, FREQUENCY_DAYS, TYPE_LABELS } from '../types';
+import { FREQUENCY_LABELS, FREQUENCY_DAYS, TYPE_LABELS, computeTier, TIER_LABELS } from '../types';
 
 interface Props {
   contact: Contact;
@@ -32,16 +32,26 @@ const badgeClasses: Record<string, string> = {
   unclassified: 'badge-unclassified',
 };
 
+const tierColors: Record<string, string> = {
+  tier_1_inner_circle: 'var(--client)',
+  tier_2_strategic: 'var(--capital)',
+  tier_3_dormant: 'var(--text-muted)',
+};
+
 export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelete }: Props) {
   const days = daysSince(c.lastTouched);
   const due = isDue(c);
+  const tier = computeTier(c);
   const meta = [c.position, c.company, c.eventMet ? `met at ${c.eventMet}` : ''].filter(Boolean).join(' · ');
 
   return (
-    <div className="contact-card">
+    <div className={`contact-card ${due ? 'contact-card-due' : ''}`}>
       <div className={`avatar ${c.type}`}>{initials(c.name)}</div>
       <div className="contact-main">
-        <div className="contact-name">{c.name}</div>
+        <div className="contact-name">
+          {c.name}
+          {due && <span className="due-badge">Due</span>}
+        </div>
         <div className="contact-meta">{meta}</div>
         {c.notes && (
           <div className="contact-note">
@@ -63,8 +73,10 @@ export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelet
         <div className="heat-row">
           <div className="heat-dot" style={{ background: heatColors[c.heat] }} />
           <span className="freq-tag">{FREQUENCY_LABELS[c.frequency]}</span>
-          {due && <span className="due-icon" title="Due for touch">&#128276;</span>}
         </div>
+        <span className="tier-tag" style={{ color: tierColors[tier] }}>
+          {TIER_LABELS[tier]}
+        </span>
         <span className="days-tag">
           {days === null ? 'Never touched' : `${days}d ago`}
         </span>

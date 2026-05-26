@@ -1,7 +1,11 @@
-import type { Interaction, MeetingCategory } from '../types';
+import { useState } from 'react';
+import type { Interaction, MeetingCategory, InteractionType } from '../types';
+import { STAFF_ROSTER } from '../types';
 
 interface Props {
   interactions: Interaction[];
+  onLogMeeting: (data: Omit<Interaction, 'id'>) => Promise<void>;
+  currentUser: string;
 }
 
 const categoryColors: Record<MeetingCategory, string> = {
@@ -25,8 +29,101 @@ const categoryBadge: Record<MeetingCategory, string> = {
   internal: 'badge-partner',
 };
 
-export default function MeetingAudit({ interactions }: Props) {
-  const meetings = interactions.filter(i => i.type === 'meeting' || i.type === 'event');
+function WeeklyReportForm({ onSubmit, currentUser }: {
+  onSubmit: (data: Omit<Interaction, 'id'>) => Promise<void>;
+  currentUser: string;
+}) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [type, setType] = useState<InteractionType>('meeting');
+  const [category, setCategory] = useState<MeetingCategory>('client_side');
+  const [notes, setNotes] = useState('');
+  const [loggedBy, setLoggedBy] = useState(currentUser);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!notes.trim()) {
+      alert('Please describe the meeting/interaction.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSubmit({
+        contactId: '',
+        date,
+        type,
+        category,
+        notes: notes.trim(),
+        loggedBy,
+      });
+      setNotes('');
+      setDate(new Date().toISOString().slice(0, 10));
+    } catch (e: any) {
+      alert('Error logging: ' + (e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="weekly-form">
+      <h3 className="weekly-form-title">Log a Meeting from Weekly Report</h3>
+      <p className="weekly-form-desc">
+        Directors submit weekly work and meeting reports. Log each meeting here so the
+        app can categorize and track your time allocation across the structural hole.
+      </p>
+      <div className="weekly-form-grid">
+        <div className="form-group">
+          <label>Date</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Type</label>
+          <select value={type} onChange={e => setType(e.target.value as InteractionType)}>
+            <option value="meeting">Meeting</option>
+            <option value="call">Call</option>
+            <option value="email">Email</option>
+            <option value="event">Event / Conference</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value as MeetingCategory)}>
+            <option value="client_side">Client-side (advancing client relationships)</option>
+            <option value="capital_side">Capital-side (banks, investors, fund managers)</option>
+            <option value="internal">Internal (team, strategy, operations)</option>
+            <option value="neither">Neither (regulatory, admin, other)</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Logged by</label>
+          <select value={loggedBy} onChange={e => setLoggedBy(e.target.value)}>
+            {STAFF_ROSTER.map(s => (
+              <option key={s.id} value={s.name}>{s.name} — {s.role}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group full">
+          <label>Meeting description</label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="e.g. Met with CIMB Capital Markets team to discuss potential co-lead on upcoming IPO mandate..."
+            rows={3}
+          />
+        </div>
+      </div>
+      <div className="form-actions">
+        <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
+          {saving ? 'Logging...' : 'Log meeting'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function MeetingAudit({ interactions, onLogMeeting, currentUser }: Props) {
+  const [showForm, setShowForm] = useState(false);
+  const meetings = interactions.filter(i => i.type === 'meeting' || i.type === 'event' || i.type === 'call');
 
   const counts: Record<MeetingCategory, number> = {
     client_side: 0,
@@ -47,23 +144,50 @@ export default function MeetingAudit({ interactions }: Props) {
   const capitalPct = Math.round((counts.capital_side / total) * 100);
   const structuralHolePct = clientPct + capitalPct;
 
+  const byStaff = new Map<string, { total: number; sh: number }>();
+  meetings.forEach(m => {
+    const entry = byStaff.get(m.loggedBy) || { total: 0, sh: 0 };
+    entry.total++;
+    if (m.category === 'client_side' || m.category === 'capital_side') entry.sh++;
+    byStaff.set(m.loggedBy, entry);
+  });
+
   return (
     <div className="audit-wrap">
-      <h2>Meeting Audit</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-        Every meeting should be evaluated against whether it advances the firm across the structural
-        hole. This view shows how your interactions break down.
-      </p>
+      <div className="audit-header">
+        <div>
+          <h2>Meeting Audit</h2>
+          <p className="audit-desc">
+            Every meeting should be evaluated against whether it advances the firm across
+            the structural hole. This view shows how your interactions break down between
+            client-side, capital-side, internal, and other activities.
+          </p>
+        </div>
+        <button
+          className={`btn-primary ${showForm ? 'btn-active' : ''}`}
+          onClick={() => setShowForm(!showForm)}
+        >
+          {showForm ? 'Hide form' : '+ Log meeting'}
+        </button>
+      </div>
+
+      {showForm && (
+        <WeeklyReportForm onSubmit={onLogMeeting} currentUser={currentUser} />
+      )}
 
       {meetings.length === 0 ? (
         <div className="empty">
-          No interactions logged yet. Use "Mark touched" on contacts to start tracking.
+          <p style={{ marginBottom: 8 }}>No interactions logged yet.</p>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+            Use "Mark touched" on contacts or the "Log meeting" button above to start tracking.
+            Directors can log meetings from their weekly reports here.
+          </p>
         </div>
       ) : (
         <>
           {/* Stacked bar chart */}
           <div className="audit-chart">
-            {(['client_side', 'capital_side', 'neither', 'internal'] as MeetingCategory[]).map(cat => {
+            {(['client_side', 'capital_side', 'internal', 'neither'] as MeetingCategory[]).map(cat => {
               const pct = (counts[cat] / total) * 100;
               if (pct === 0) return null;
               return (
@@ -80,7 +204,7 @@ export default function MeetingAudit({ interactions }: Props) {
 
           {/* Legend */}
           <div className="audit-legend">
-            {(['client_side', 'capital_side', 'neither', 'internal'] as MeetingCategory[]).map(cat => (
+            {(['client_side', 'capital_side', 'internal', 'neither'] as MeetingCategory[]).map(cat => (
               <div key={cat} className="legend-item">
                 <div className="legend-dot" style={{ background: categoryColors[cat] }} />
                 {categoryLabels[cat]}: {counts[cat]} ({Math.round((counts[cat] / total) * 100)}%)
@@ -90,28 +214,47 @@ export default function MeetingAudit({ interactions }: Props) {
 
           {/* Strategic assessment */}
           <div
-            className="imbalance-warning"
-            style={{
-              marginBottom: 20,
-              background: structuralHolePct >= 60 ? 'var(--client-bg)' : '#fff8f0',
-              borderColor: structuralHolePct >= 60 ? '#b0dcc8' : '#f0d8b0',
-              color: structuralHolePct >= 60 ? 'var(--client)' : '#8a5a00',
-            }}
+            className={`audit-assessment ${structuralHolePct >= 60 ? 'assessment-good' : 'assessment-warn'}`}
           >
-            <strong>{structuralHolePct}% of meetings</strong> advance the structural hole
-            (client-side + capital-side).
-            {structuralHolePct < 50 && (
-              <> This is below the recommended threshold. Re-evaluate your meeting allocation.</>
-            )}
-            {structuralHolePct >= 50 && structuralHolePct < 75 && (
-              <> Good progress — keep pushing more meetings toward client and capital conversations.</>
-            )}
-            {structuralHolePct >= 75 && <> Excellent strategic focus.</>}
+            <div className="assessment-score">
+              <span className="assessment-pct">{structuralHolePct}%</span>
+              <span className="assessment-label">Structural Hole Focus</span>
+            </div>
+            <div className="assessment-text">
+              {structuralHolePct}% of meetings advance the structural hole (client-side + capital-side).
+              {structuralHolePct < 50 && (
+                <> This is below the recommended 50% threshold. Too many meetings are spent on internal or non-strategic activities. Re-evaluate your meeting allocation — every meeting costs opportunity.</>
+              )}
+              {structuralHolePct >= 50 && structuralHolePct < 75 && (
+                <> Good progress — keep pushing more meetings toward client and capital conversations. The firm creates value at the boundary, not in internal huddles.</>
+              )}
+              {structuralHolePct >= 75 && <> Excellent strategic focus. Your meeting time is overwhelmingly spent where the firm creates value — at the structural hole boundary.</>}
+            </div>
           </div>
 
+          {/* Per-staff breakdown */}
+          {byStaff.size > 1 && (
+            <div className="audit-staff-section">
+              <h3 className="audit-section-title">By Staff Member</h3>
+              <div className="audit-staff-grid">
+                {[...byStaff.entries()]
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([name, stats]) => (
+                    <div key={name} className="audit-staff-card">
+                      <span className="audit-staff-name">{name}</span>
+                      <span className="audit-staff-total">{stats.total} meetings</span>
+                      <span className="audit-staff-sh">
+                        {stats.total > 0 ? Math.round((stats.sh / stats.total) * 100) : 0}% strategic
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Recent interactions list */}
-          <h3 style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>
-            Recent interactions ({sorted.length})
+          <h3 className="audit-section-title">
+            Recent Interactions ({sorted.length})
           </h3>
           <div className="audit-list">
             {sorted.slice(0, 50).map(i => (

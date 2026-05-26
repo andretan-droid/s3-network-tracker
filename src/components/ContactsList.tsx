@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Contact, ContactType } from '../types';
 import ContactCard from './ContactCard';
+import DuplicatesBanner from './DuplicatesBanner';
 
 type FilterType = 'all' | ContactType | 'hot';
 
@@ -16,6 +17,7 @@ const filters: { key: FilterType; label: string }[] = [
   { key: 'client', label: 'Clients' },
   { key: 'capital_provider', label: 'Capital providers' },
   { key: 'partner', label: 'Partners' },
+  { key: 'unclassified', label: 'Unclassified' },
   { key: 'hot', label: 'Hot leads' },
 ];
 
@@ -32,11 +34,17 @@ export default function ContactsList({ contacts, onMarkTouched, onEdit, onDelete
     .filter(c => {
       if (!query) return true;
       const q = query.toLowerCase();
-      return c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q);
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.company.toLowerCase().includes(q) ||
+        c.owners.toLowerCase().includes(q) ||
+        c.position.toLowerCase().includes(q)
+      );
     });
 
   return (
     <>
+      <DuplicatesBanner contacts={contacts} onEdit={onEdit} />
       <div className="filters">
         {filters.map(f => (
           <button
@@ -45,15 +53,24 @@ export default function ContactsList({ contacts, onMarkTouched, onEdit, onDelete
             onClick={() => setFilter(f.key)}
           >
             {f.label}
+            {f.key !== 'all' && f.key !== 'hot' && (
+              <span className="filter-count">
+                {contacts.filter(c => f.key === 'hot' ? c.heat === 'hot' : c.type === f.key).length}
+              </span>
+            )}
           </button>
         ))}
         <input
           className="search-input"
           type="text"
-          placeholder="Search name or company..."
+          placeholder="Search name, company, owner, or role..."
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
+      </div>
+      <div className="contacts-count">
+        {filtered.length} contact{filtered.length !== 1 ? 's' : ''}
+        {filter !== 'all' ? ` (filtered)` : ''}
       </div>
       <div className="contacts-list">
         {filtered.length === 0 ? (
