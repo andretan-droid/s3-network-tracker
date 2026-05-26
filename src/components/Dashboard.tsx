@@ -103,7 +103,7 @@ function DonutChart({ data }: { data: { label: string; count: number; color: str
         <text x={cx} y={cy - 6} textAnchor="middle" fill="var(--text)" fontSize="22" fontWeight="700">
           {total}
         </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="10" textTransform="uppercase" letterSpacing="0.04em">
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="10" letterSpacing="0.04em" style={{ textTransform: 'uppercase' }}>
           total
         </text>
       </svg>
