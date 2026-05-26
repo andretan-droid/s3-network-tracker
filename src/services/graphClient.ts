@@ -49,7 +49,7 @@ export async function resolveWorkbookPath(): Promise<string> {
   const explicitPath = import.meta.env.VITE_EXCEL_WORKBOOK_PATH;
   if (explicitPath) {
     resolvedWorkbookPath = explicitPath;
-    return resolvedWorkbookPath;
+    return explicitPath;
   }
 
   const client = getGraphClient();
