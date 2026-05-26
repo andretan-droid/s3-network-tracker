@@ -5,7 +5,7 @@ import { LogLevel } from '@azure/msal-browser';
 // See docs/AZURE_SETUP_GUIDE.md for step-by-step instructions
 const CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'YOUR_CLIENT_ID';
 const TENANT_ID = import.meta.env.VITE_AZURE_TENANT_ID || 'YOUR_TENANT_ID';
-const REDIRECT_URI = window.location.origin;
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || window.location.origin;
 
 export const msalConfig: Configuration = {
   auth: {
