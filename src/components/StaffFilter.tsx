@@ -11,30 +11,27 @@ export default function StaffFilter({ value, onChange }: Props) {
   const staff = STAFF_ROSTER.filter(s => s.level === 'staff');
 
   return (
-    <div className="staff-filter">
-      <span>View:</span>
-      <select
-        className="staff-select"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      >
-        <option value="all">Firm-wide (all contacts)</option>
-        <optgroup label="Executive Directors">
-          {eds.map(s => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </optgroup>
-        <optgroup label="Associate Directors">
-          {ads.map(s => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </optgroup>
-        <optgroup label="Staff">
-          {staff.map(s => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </optgroup>
-      </select>
-    </div>
+    <select
+      className="sidebar-staff-select"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+    >
+      <option value="all">Firm-wide (all contacts)</option>
+      <optgroup label="Executive Directors">
+        {eds.map(s => (
+          <option key={s.id} value={s.name}>{s.name}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Associate Directors">
+        {ads.map(s => (
+          <option key={s.id} value={s.name}>{s.name}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Staff">
+        {staff.map(s => (
+          <option key={s.id} value={s.name}>{s.name}</option>
+        ))}
+      </optgroup>
+    </select>
   );
 }
