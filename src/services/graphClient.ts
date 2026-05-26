@@ -26,22 +26,53 @@ export function getGraphClient(): Client {
   return graphClient;
 }
 
-// ─── Excel workbook helpers ──────────────────────────────────
-// The DRIVE_ITEM_PATH points to the shared Excel file.
-// Format: /drives/{driveId}/items/{itemId}  OR
-//         /me/drive/root:/path/to/NetworkTracker.xlsx:
-// Set via env var or configure after first deployment.
+// ─── SharePoint sharing link → Graph API path ──────────────
+// Encodes a SharePoint sharing URL into the /shares/{token}/driveItem format
+// that Microsoft Graph uses to resolve shared files.
+const SHAREPOINT_URL = import.meta.env.VITE_SHAREPOINT_URL
+  || 'https://sage3my.sharepoint.com/:x:/s/Sage3BusinessDevelopment/IQDfmSXbZMbaRaVtt7a62voAAWrzZsf1g9S2W7G7LMd-DrM?e=aqCsLI';
 
-const WORKBOOK_PATH = import.meta.env.VITE_EXCEL_WORKBOOK_PATH
-  || '/me/drive/root:/NetworkTracker.xlsx:';
+function encodeSharingUrl(url: string): string {
+  const base64 = btoa(url);
+  const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `u!${base64url}`;
+}
 
-export function getWorkbookPath() {
-  return WORKBOOK_PATH;
+// Cache the resolved workbook path so we don't re-resolve on every call
+let resolvedWorkbookPath: string | null = null;
+
+export async function resolveWorkbookPath(): Promise<string> {
+  if (resolvedWorkbookPath) return resolvedWorkbookPath;
+
+  // If an explicit drive path is provided, use it directly
+  const explicitPath = import.meta.env.VITE_EXCEL_WORKBOOK_PATH;
+  if (explicitPath) {
+    resolvedWorkbookPath = explicitPath;
+    return resolvedWorkbookPath;
+  }
+
+  // Resolve SharePoint sharing link to a driveItem path
+  const shareToken = encodeSharingUrl(SHAREPOINT_URL);
+  const client = getGraphClient();
+  const driveItem = await client
+    .api(`/shares/${shareToken}/driveItem`)
+    .select('id,parentReference')
+    .get();
+
+  const driveId = driveItem.parentReference?.driveId;
+  const itemId = driveItem.id;
+
+  if (!driveId || !itemId) {
+    throw new Error('Could not resolve SharePoint file. Check that the sharing link is valid and you have access.');
+  }
+
+  resolvedWorkbookPath = `/drives/${driveId}/items/${itemId}`;
+  return resolvedWorkbookPath;
 }
 
 export async function readTable(tableName: string): Promise<string[][]> {
   const client = getGraphClient();
-  const path = getWorkbookPath();
+  const path = await resolveWorkbookPath();
   const res = await client
     .api(`${path}/workbook/tables/${tableName}/rows`)
     .get();
@@ -50,7 +81,7 @@ export async function readTable(tableName: string): Promise<string[][]> {
 
 export async function readTableHeaders(tableName: string): Promise<string[]> {
   const client = getGraphClient();
-  const path = getWorkbookPath();
+  const path = await resolveWorkbookPath();
   const res = await client
     .api(`${path}/workbook/tables/${tableName}/columns`)
     .get();
@@ -59,7 +90,7 @@ export async function readTableHeaders(tableName: string): Promise<string[]> {
 
 export async function addTableRow(tableName: string, values: (string | number | null)[]): Promise<void> {
   const client = getGraphClient();
-  const path = getWorkbookPath();
+  const path = await resolveWorkbookPath();
   await client
     .api(`${path}/workbook/tables/${tableName}/rows`)
     .post({ values: [values] });
@@ -71,7 +102,7 @@ export async function updateTableRow(
   values: (string | number | null)[]
 ): Promise<void> {
   const client = getGraphClient();
-  const path = getWorkbookPath();
+  const path = await resolveWorkbookPath();
   await client
     .api(`${path}/workbook/tables/${tableName}/rows/itemAt(index=${rowIndex})`)
     .patch({ values: [values] });
@@ -79,7 +110,7 @@ export async function updateTableRow(
 
 export async function deleteTableRow(tableName: string, rowIndex: number): Promise<void> {
   const client = getGraphClient();
-  const path = getWorkbookPath();
+  const path = await resolveWorkbookPath();
   await client
     .api(`${path}/workbook/tables/${tableName}/rows/itemAt(index=${rowIndex})`)
     .delete();
