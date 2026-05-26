@@ -78,7 +78,7 @@ function AppContent() {
     async (id: string) => {
       try {
         await markContactTouched(id, userName);
-        toast('Interaction logged — contact marked as touched.');
+        toast('Interaction logged. Contact marked as touched.');
         refresh();
         refreshInteractions();
       } catch (e: unknown) {
@@ -171,7 +171,7 @@ function AppContent() {
             <div className="login-left-features">
               <div className="login-left-feature">
                 <div className="login-left-feature-icon">{'◉'}</div>
-                <span>Structural Hole Map — visualize your brokerage position</span>
+                <span>Structural Hole Map: visualize your brokerage position</span>
               </div>
               <div className="login-left-feature">
                 <div className="login-left-feature-icon">{'⬡'}</div>
@@ -179,7 +179,7 @@ function AppContent() {
               </div>
               <div className="login-left-feature">
                 <div className="login-left-feature-icon">{'⚑'}</div>
-                <span>Meeting audit — measure if meetings advance the hole</span>
+                <span>Meeting audit: measure if meetings advance the hole</span>
               </div>
               <div className="login-left-feature">
                 <div className="login-left-feature-icon">{'☺'}</div>
@@ -200,7 +200,7 @@ function AppContent() {
             <div className="login-hero">
               <h2>Strategic Relationship Intelligence</h2>
               <p>
-                Your firm sits in a <strong>structural hole</strong> — bridging clients who
+                Your firm sits in a <strong>structural hole</strong>, bridging clients who
                 need capital and advisory with banks and investors who need deal flow. This
                 gap is your strategic advantage. This tool helps you see, measure, and
                 strengthen it.

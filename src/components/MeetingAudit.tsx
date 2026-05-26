@@ -94,7 +94,7 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
           <label>Logged by</label>
           <select value={loggedBy} onChange={e => setLoggedBy(e.target.value)}>
             {STAFF_ROSTER.map(s => (
-              <option key={s.id} value={s.name}>{s.name} — {s.role}</option>
+              <option key={s.id} value={s.name}>{s.name}, {s.role}</option>
             ))}
           </select>
         </div>
@@ -214,12 +214,12 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
             <div className="assessment-text">
               {structuralHolePct}% of meetings advance the structural hole (client-side + capital-side).
               {structuralHolePct < 50 && (
-                <> This is below the recommended 50% threshold. Too many meetings are spent on internal or non-strategic activities. Re-evaluate your meeting allocation — every meeting costs opportunity.</>
+                <> This is below the recommended 50% threshold. Too many meetings are spent on internal or non-strategic activities. Re-evaluate your meeting allocation. Every meeting costs opportunity.</>
               )}
               {structuralHolePct >= 50 && structuralHolePct < 75 && (
-                <> Good progress — keep pushing more meetings toward client and capital conversations. The firm creates value at the boundary, not in internal huddles.</>
+                <> Good progress. Keep pushing more meetings toward client and capital conversations. The firm creates value at the boundary, not in internal huddles.</>
               )}
-              {structuralHolePct >= 75 && <> Excellent strategic focus. Your meeting time is overwhelmingly spent where the firm creates value — at the structural hole boundary.</>}
+              {structuralHolePct >= 75 && <> Excellent strategic focus. Your meeting time is overwhelmingly spent where the firm creates value, at the structural hole boundary.</>}
             </div>
           </div>
 

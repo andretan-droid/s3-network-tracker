@@ -58,7 +58,7 @@ export default function DuplicatesBanner({ contacts, onEdit, onMergeAll }: Props
             <div className="dupes-owners">
               {group.map(c => (
                 <button key={c.id} className="dupes-owner-btn" onClick={() => onEdit(c.id)}>
-                  {c.owners || 'Unknown'} — {c.company}
+                  {c.owners || 'Unknown'} · {c.company}
                 </button>
               ))}
             </div>

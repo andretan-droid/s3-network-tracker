@@ -206,23 +206,23 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
           <label>Lead heat</label>
           <select value={form.heat} onChange={set('heat')}>
             <option value="">Not set (to be filled later)</option>
-            <option value="hot">Hot — active interest</option>
-            <option value="warm">Warm — potential interest</option>
-            <option value="cold">Cold — just collecting</option>
+            <option value="hot">Hot: active interest</option>
+            <option value="warm">Warm: potential interest</option>
+            <option value="cold">Cold: just collecting</option>
           </select>
         </div>
         <div className="form-group">
           <label>Touch frequency</label>
           <select value={form.frequency} onChange={set('frequency')}>
             <option value="">Not set (to be filled later)</option>
-            <option value="biannual">2x per year (strategic — most valuable)</option>
+            <option value="biannual">2x per year (strategic, most valuable)</option>
             <option value="quarterly">Quarterly</option>
             <option value="monthly">Monthly</option>
             <option value="asneeded">As needed</option>
           </select>
         </div>
         <div className="form-group full">
-          <label>Owner(s) * — whose connection is this?</label>
+          <label>Owner(s) *</label>
           <OwnerMultiSelect
             value={form.owners}
             onChange={(val) => setForm(prev => ({ ...prev, owners: val }))}

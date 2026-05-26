@@ -256,7 +256,7 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
           <BalanceMeter clients={clients.length} capital={capital.length} />
           {unclassified.length > 0 && (
             <div className="dash-alert">
-              {unclassified.length} contact{unclassified.length > 1 ? 's' : ''} unclassified — tag them as
+              {unclassified.length} contact{unclassified.length > 1 ? 's' : ''} unclassified. Tag them as
               Client, Capital, or Partner for an accurate structural hole picture.
             </div>
           )}
@@ -289,13 +289,13 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
         {tiers.tier_3_dormant.length > tiers.tier_2_strategic.length && tiers.tier_3_dormant.length > 5 && (
           <div className="dash-alert">
             You have more dormant contacts ({tiers.tier_3_dormant.length}) than strategic ones
-            ({tiers.tier_2_strategic.length}). Many relationships may be decaying — check
+            ({tiers.tier_2_strategic.length}). Many relationships may be decaying. Check
             the Follow-up Queue to re-engage the most valuable ones.
           </div>
         )}
         {tiers.tier_2_strategic.length > 0 && (
           <div className="tier-2-spotlight">
-            <h4>Tier 2 Spotlight — The Strategic Core</h4>
+            <h4>Tier 2 Spotlight</h4>
             <div className="tier-2-chips">
               {tiers.tier_2_strategic.slice(0, 12).map(c => (
                 <span key={c.id} className={`chip chip-${c.type}`}>
