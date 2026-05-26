@@ -236,7 +236,7 @@ function AppContent() {
           <span className="user-pill">{userName}</span>
         </div>
         <div className="topbar-right">
-          <span>{error ? 'Sync error' : syncLabel}</span>
+          <span title={error || ''}>{error ? `Sync error: ${error.substring(0, 60)}` : syncLabel}</span>
           <button className="sync-btn" onClick={() => { refresh(); refreshInteractions(); }}>
             Sync now
           </button>
