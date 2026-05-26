@@ -49,14 +49,14 @@ function AppContent() {
 
   const handleLogin = async () => {
     try {
-      await instance.loginPopup(loginRequest);
+      await instance.loginRedirect(loginRequest);
     } catch (e) {
       console.error('Login failed:', e);
     }
   };
 
   const handleLogout = () => {
-    instance.logoutPopup();
+    instance.logoutRedirect();
   };
 
   const handleMarkTouched = useCallback(
