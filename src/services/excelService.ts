@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { readTable, addTableRow, updateTableRow, deleteTableRow } from './graphClient';
+import { readTable, addTableRow, addTableRows, updateTableRow, deleteTableRow, clearTableData } from './graphClient';
 import type { Contact, Interaction, ContactType, HeatLevel, Frequency, InteractionType, MeetingCategory } from '../types';
 
 // ─── Column order must match the Excel table exactly ─────────
@@ -139,4 +139,118 @@ export function getCachedContacts(): Contact[] {
 
 export function getCachedInteractions(): Interaction[] {
   return interactionsCache;
+}
+
+// ─── DUPLICATE MERGE ────────────────────────────────────────
+
+function pickBest(a: string, b: string): string {
+  if (!a) return b;
+  if (!b) return a;
+  return a.length >= b.length ? a : b;
+}
+
+function pickLatestDate(a: string, b: string): string {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a) >= new Date(b) ? a : b;
+}
+
+function mergeOwners(contacts: Contact[]): string {
+  const ownerSet = new Set<string>();
+  for (const c of contacts) {
+    c.owners.split(',').map(s => s.trim()).filter(Boolean).forEach(o => ownerSet.add(o));
+  }
+  return [...ownerSet].join(', ');
+}
+
+function mergeContactGroup(group: Contact[]): Contact {
+  const base = group[0];
+  const merged: Contact = { ...base };
+
+  for (let i = 1; i < group.length; i++) {
+    const c = group[i];
+    merged.company = pickBest(merged.company, c.company);
+    merged.position = pickBest(merged.position, c.position);
+    merged.email = pickBest(merged.email, c.email);
+    merged.phoneMobile = pickBest(merged.phoneMobile, c.phoneMobile);
+    merged.phoneOffice = pickBest(merged.phoneOffice, c.phoneOffice);
+    merged.linkedin = pickBest(merged.linkedin, c.linkedin);
+    merged.eventMet = pickBest(merged.eventMet, c.eventMet);
+    merged.notes = pickBest(merged.notes, c.notes);
+    merged.dateAdded = pickLatestDate(merged.dateAdded, c.dateAdded);
+    merged.lastTouched = pickLatestDate(merged.lastTouched, c.lastTouched);
+    if (merged.type === 'unclassified' && c.type !== 'unclassified') merged.type = c.type;
+    if (merged.heat === 'cold' && c.heat !== 'cold') merged.heat = c.heat;
+    if (c.heat === 'hot') merged.heat = 'hot';
+  }
+  merged.owners = mergeOwners(group);
+  return merged;
+}
+
+export async function mergeAllDuplicates(
+  onProgress?: (msg: string) => void
+): Promise<{ merged: number; removed: number }> {
+  onProgress?.('Reading all contacts...');
+  const allContacts = await fetchContacts();
+
+  onProgress?.('Finding duplicates...');
+  const nameMap = new Map<string, Contact[]>();
+  for (const c of allContacts) {
+    const key = c.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!key) continue;
+    const group = nameMap.get(key) || [];
+    group.push(c);
+    nameMap.set(key, group);
+  }
+
+  const dupeGroups: Contact[][] = [];
+  for (const group of nameMap.values()) {
+    if (group.length > 1) dupeGroups.push(group);
+  }
+
+  if (dupeGroups.length === 0) {
+    return { merged: 0, removed: 0 };
+  }
+
+  const dupeIds = new Set<string>();
+  for (const group of dupeGroups) {
+    for (const c of group) dupeIds.add(c.id);
+  }
+
+  const mergedContacts: Contact[] = dupeGroups.map(mergeContactGroup);
+  const mergedIds = new Set(mergedContacts.map(c => c.id));
+
+  const finalList: Contact[] = [];
+  const seen = new Set<string>();
+  for (const c of allContacts) {
+    if (dupeIds.has(c.id)) {
+      if (!seen.has(c.id) && mergedIds.has(c.id)) {
+        const merged = mergedContacts.find(m => m.id === c.id)!;
+        finalList.push(merged);
+        seen.add(c.id);
+      }
+    } else {
+      finalList.push(c);
+    }
+  }
+
+  const removed = allContacts.length - finalList.length;
+  onProgress?.(`Merging ${dupeGroups.length} groups, removing ${removed} duplicates...`);
+
+  onProgress?.('Clearing table...');
+  await clearTableData('Contacts');
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < finalList.length; i += BATCH_SIZE) {
+    const batch = finalList.slice(i, i + BATCH_SIZE);
+    const rows = batch.map(contactToRow);
+    onProgress?.(`Writing contacts ${i + 1}–${Math.min(i + BATCH_SIZE, finalList.length)} of ${finalList.length}...`);
+    await addTableRows('Contacts', rows);
+  }
+
+  contactsCache = finalList;
+  contactsRowMap = new Map(contactsCache.map((c, i) => [c.id, i]));
+
+  onProgress?.('Done!');
+  return { merged: dupeGroups.length, removed };
 }

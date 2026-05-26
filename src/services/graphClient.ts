@@ -209,3 +209,24 @@ export async function deleteTableRow(tableName: string, rowIndex: number): Promi
     .api(`${path}/workbook/tables/${tableName}/rows/itemAt(index=${rowIndex})`)
     .delete();
 }
+
+export async function clearTableData(tableName: string): Promise<void> {
+  const client = getGraphClient();
+  const path = await resolveWorkbookPath();
+  try {
+    await client
+      .api(`${path}/workbook/tables/${tableName}/dataBodyRange/delete`)
+      .post({ shift: 'Up' });
+  } catch (e: any) {
+    if (e.statusCode === 404 || e.message?.includes('empty')) return;
+    throw e;
+  }
+}
+
+export async function addTableRows(tableName: string, rows: (string | number | null)[][]): Promise<void> {
+  const client = getGraphClient();
+  const path = await resolveWorkbookPath();
+  await client
+    .api(`${path}/workbook/tables/${tableName}/rows`)
+    .post({ values: rows });
+}

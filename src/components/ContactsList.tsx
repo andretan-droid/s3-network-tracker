@@ -10,6 +10,7 @@ interface Props {
   onMarkTouched: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onMergeAll: () => Promise<void>;
 }
 
 const filters: { key: FilterType; label: string }[] = [
@@ -21,7 +22,7 @@ const filters: { key: FilterType; label: string }[] = [
   { key: 'hot', label: 'Hot leads' },
 ];
 
-export default function ContactsList({ contacts, onMarkTouched, onEdit, onDelete }: Props) {
+export default function ContactsList({ contacts, onMarkTouched, onEdit, onDelete, onMergeAll }: Props) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [query, setQuery] = useState('');
 
@@ -44,7 +45,7 @@ export default function ContactsList({ contacts, onMarkTouched, onEdit, onDelete
 
   return (
     <>
-      <DuplicatesBanner contacts={contacts} onEdit={onEdit} />
+      <DuplicatesBanner contacts={contacts} onEdit={onEdit} onMergeAll={onMergeAll} />
       <div className="filters">
         {filters.map(f => (
           <button

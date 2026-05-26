@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { loginRequest } from './services/authConfig';
 import { initGraphClient } from './services/graphClient';
-import { addContact, updateContact, removeContact, markContactTouched, addInteraction } from './services/excelService';
+import { addContact, updateContact, removeContact, markContactTouched, addInteraction, mergeAllDuplicates } from './services/excelService';
 import { useContacts } from './hooks/useContacts';
 import { useInteractions } from './hooks/useInteractions';
 import { ToastProvider, useToast } from './components/Toast';
@@ -130,6 +130,15 @@ function AppContent() {
       refreshInteractions();
     },
     [toast, refreshInteractions]
+  );
+
+  const handleMergeAll = useCallback(
+    async () => {
+      const result = await mergeAllDuplicates((msg) => console.log('[Merge]', msg));
+      toast(`Merged ${result.merged} duplicate groups, removed ${result.removed} extra entries.`);
+      refresh();
+    },
+    [toast, refresh]
   );
 
   const handleClearForm = useCallback(() => {
@@ -284,6 +293,7 @@ function AppContent() {
                 onMarkTouched={handleMarkTouched}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onMergeAll={handleMergeAll}
               />
             )}
             {tab === 'add' && (
