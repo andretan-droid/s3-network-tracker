@@ -6,7 +6,7 @@ interface Props {
   contacts: Contact[];
 }
 
-const heatColors = { hot: 'var(--hot)', warm: 'var(--warm)', cold: 'var(--cold)' };
+const heatColors: Record<string, string> = { hot: 'var(--hot)', warm: 'var(--warm)', cold: 'var(--cold)', '': 'var(--border)' };
 
 function ContactChip({ contact: c }: { contact: Contact }) {
   const tier = computeTier(c);

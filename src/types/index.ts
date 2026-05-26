@@ -1,6 +1,6 @@
 export type ContactType = 'client' | 'capital_provider' | 'partner' | 'unclassified';
-export type HeatLevel = 'hot' | 'warm' | 'cold';
-export type Frequency = 'biannual' | 'quarterly' | 'monthly' | 'asneeded';
+export type HeatLevel = 'hot' | 'warm' | 'cold' | '';
+export type Frequency = 'biannual' | 'quarterly' | 'monthly' | 'asneeded' | '';
 export type InteractionType = 'meeting' | 'call' | 'email' | 'event';
 export type MeetingCategory = 'client_side' | 'capital_side' | 'neither' | 'internal';
 export type StaffLevel = 'executive_director' | 'associate_director' | 'staff';
@@ -47,6 +47,7 @@ export const FREQUENCY_DAYS: Record<Frequency, number> = {
   quarterly: 90,
   monthly: 30,
   asneeded: 9999,
+  '': 9999,
 };
 
 export const FREQUENCY_LABELS: Record<Frequency, string> = {
@@ -54,6 +55,7 @@ export const FREQUENCY_LABELS: Record<Frequency, string> = {
   quarterly: 'Quarterly',
   monthly: 'Monthly',
   asneeded: 'As needed',
+  '': 'Not set',
 };
 
 export const TYPE_LABELS: Record<ContactType, string> = {
@@ -89,6 +91,7 @@ export function daysSinceTouch(c: Contact): number | null {
 }
 
 export function isDue(c: Contact): boolean {
+  if (!c.frequency) return false;
   if (!c.lastTouched) return true;
   const days = (Date.now() - new Date(c.lastTouched).getTime()) / 86_400_000;
   return days >= FREQUENCY_DAYS[c.frequency];

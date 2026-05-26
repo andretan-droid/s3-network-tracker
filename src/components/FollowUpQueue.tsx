@@ -7,6 +7,7 @@ interface Props {
 }
 
 function isDue(c: Contact): boolean {
+  if (!c.frequency) return false;
   if (!c.lastTouched) return true;
   const days = (Date.now() - new Date(c.lastTouched).getTime()) / 86_400_000;
   return days >= FREQUENCY_DAYS[c.frequency];
@@ -27,8 +28,8 @@ export default function FollowUpQueue({ contacts, onMarkTouched }: Props) {
   const due = [...contacts]
     .filter(isDue)
     .sort((a, b) => {
-      const order = { hot: 0, warm: 1, cold: 2 };
-      if (order[a.heat] !== order[b.heat]) return order[a.heat] - order[b.heat];
+      const order: Record<string, number> = { hot: 0, warm: 1, cold: 2, '': 3 };
+      if ((order[a.heat] ?? 3) !== (order[b.heat] ?? 3)) return (order[a.heat] ?? 3) - (order[b.heat] ?? 3);
       const tierOrder = { tier_2_strategic: 0, tier_1_inner_circle: 1, tier_3_dormant: 2 };
       return tierOrder[computeTier(a)] - tierOrder[computeTier(b)];
     });

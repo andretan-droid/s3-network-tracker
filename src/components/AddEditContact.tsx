@@ -18,9 +18,9 @@ const emptyForm = {
   phoneMobile: '',
   phoneOffice: '',
   linkedin: '',
-  type: 'client' as ContactType,
-  heat: 'warm' as HeatLevel,
-  frequency: 'biannual' as Frequency,
+  type: 'unclassified' as ContactType,
+  heat: '' as HeatLevel,
+  frequency: '' as Frequency,
   eventMet: '',
   notes: '',
   owners: '' as string,
@@ -204,14 +204,16 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
         <div className="form-group">
           <label>Lead heat</label>
           <select value={form.heat} onChange={set('heat')}>
-            <option value="warm">Warm — potential interest</option>
+            <option value="">Not set (to be filled later)</option>
             <option value="hot">Hot — active interest</option>
+            <option value="warm">Warm — potential interest</option>
             <option value="cold">Cold — just collecting</option>
           </select>
         </div>
         <div className="form-group">
           <label>Touch frequency</label>
           <select value={form.frequency} onChange={set('frequency')}>
+            <option value="">Not set (to be filled later)</option>
             <option value="biannual">2x per year (strategic — most valuable)</option>
             <option value="quarterly">Quarterly</option>
             <option value="monthly">Monthly</option>

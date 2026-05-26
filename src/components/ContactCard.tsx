@@ -23,7 +23,7 @@ function isDue(c: Contact): boolean {
   return days >= FREQUENCY_DAYS[c.frequency];
 }
 
-const heatColors = { hot: 'var(--hot)', warm: 'var(--warm)', cold: 'var(--cold)' };
+const heatColors: Record<string, string> = { hot: 'var(--hot)', warm: 'var(--warm)', cold: 'var(--cold)', '': 'var(--border)' };
 
 const badgeClasses: Record<string, string> = {
   client: 'badge-client',
