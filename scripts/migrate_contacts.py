@@ -256,17 +256,19 @@ def main():
     dv_freq.add(f"K2:K{total_rows + 1}")
     ws_contacts.add_data_validation(dv_freq)
 
-    # Clean up Interactions sample data too
+    # Clean up Interactions sample data — keep one blank row so the table is valid
     ws_interactions = target_wb["Interactions"]
     for tbl_name in list(ws_interactions.tables.keys()):
         tbl = ws_interactions.tables[tbl_name]
         old_style = tbl.tableStyleInfo
         del ws_interactions.tables[tbl_name]
-        if ws_interactions.max_row > 1:
-            ws_interactions.delete_rows(2, ws_interactions.max_row - 1)
-        new_tbl = Table(displayName="Interactions", ref="A1:G1")
-        new_tbl.tableStyleInfo = old_style
-        ws_interactions.add_table(new_tbl)
+    if ws_interactions.max_row > 1:
+        ws_interactions.delete_rows(2, ws_interactions.max_row - 1)
+    for col in range(1, 8):
+        ws_interactions.cell(row=2, column=col, value="")
+    new_tbl = Table(displayName="Interactions", ref="A1:G2")
+    new_tbl.tableStyleInfo = old_style
+    ws_interactions.add_table(new_tbl)
 
     target_wb.save(OUTPUT_PATH)
     target_wb.close()
