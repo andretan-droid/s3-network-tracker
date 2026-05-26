@@ -462,6 +462,52 @@ body {
 }
 .btn-ghost:hover { background: var(--bg); }
 
+/* ─── Owner Multi-Select ────────────────────────────────── */
+.owner-select {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.owner-group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+  margin-top: 8px;
+}
+.owner-group-label:first-child { margin-top: 0; }
+.owner-checkboxes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.owner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.owner-chip input[type="checkbox"] { display: none; }
+.owner-chip:hover { border-color: var(--border-strong); }
+.owner-chip-active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 500;
+}
+.owner-summary {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* ─── Follow-up Queue ────────────────────────────────────── */
 .followup-wrap { }
 .followup-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }

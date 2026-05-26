@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Contact, ContactType, HeatLevel, Frequency } from '../types';
+import { STAFF_ROSTER } from '../types';
 
 interface Props {
   editingContact: Contact | null;
@@ -22,9 +23,77 @@ const emptyForm = {
   frequency: 'biannual' as Frequency,
   eventMet: '',
   notes: '',
-  owners: '',
+  owners: '' as string,
   lastTouched: '',
 };
+
+function parseOwners(str: string): string[] {
+  return str.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function OwnerMultiSelect({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const selected = parseOwners(value);
+
+  const toggle = (name: string) => {
+    const next = selected.includes(name)
+      ? selected.filter(n => n !== name)
+      : [...selected, name];
+    onChange(next.join(', '));
+  };
+
+  const eds = STAFF_ROSTER.filter(s => s.level === 'executive_director');
+  const ads = STAFF_ROSTER.filter(s => s.level === 'associate_director');
+  const staff = STAFF_ROSTER.filter(s => s.level === 'staff');
+
+  return (
+    <div className="owner-select">
+      <div className="owner-group-label">Executive Directors</div>
+      <div className="owner-checkboxes">
+        {eds.map(s => (
+          <label key={s.id} className={`owner-chip ${selected.includes(s.name) ? 'owner-chip-active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={selected.includes(s.name)}
+              onChange={() => toggle(s.name)}
+            />
+            {s.name}
+          </label>
+        ))}
+      </div>
+      <div className="owner-group-label">Associate Directors</div>
+      <div className="owner-checkboxes">
+        {ads.map(s => (
+          <label key={s.id} className={`owner-chip ${selected.includes(s.name) ? 'owner-chip-active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={selected.includes(s.name)}
+              onChange={() => toggle(s.name)}
+            />
+            {s.name}
+          </label>
+        ))}
+      </div>
+      <div className="owner-group-label">Staff</div>
+      <div className="owner-checkboxes">
+        {staff.map(s => (
+          <label key={s.id} className={`owner-chip ${selected.includes(s.name) ? 'owner-chip-active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={selected.includes(s.name)}
+              onChange={() => toggle(s.name)}
+            />
+            {s.name}
+          </label>
+        ))}
+      </div>
+      {selected.length > 0 && (
+        <div className="owner-summary">
+          Selected: <strong>{selected.join(', ')}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AddEditContact({ editingContact, currentUser, onSave, onUpdate, onClear }: Props) {
   const [form, setForm] = useState(emptyForm);
@@ -63,6 +132,10 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
       alert('Name and company are required.');
       return;
     }
+    if (!form.owners.trim()) {
+      alert('Please select at least one owner.');
+      return;
+    }
     setSaving(true);
     try {
       if (editingContact) {
@@ -85,6 +158,11 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
   return (
     <div className="add-form">
       <h2>{editingContact ? 'Edit contact' : 'Add a new contact'}</h2>
+      {editingContact && (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+          To merge a duplicate, add extra owners below and then delete the duplicate entry.
+        </p>
+      )}
       <div className="form-grid">
         <div className="form-group">
           <label>Full name *</label>
@@ -140,9 +218,12 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
             <option value="asneeded">As needed</option>
           </select>
         </div>
-        <div className="form-group">
-          <label>Owner(s)</label>
-          <input value={form.owners} onChange={set('owners')} placeholder="Ravi, Philip" />
+        <div className="form-group full">
+          <label>Owner(s) * — whose connection is this?</label>
+          <OwnerMultiSelect
+            value={form.owners}
+            onChange={(val) => setForm(prev => ({ ...prev, owners: val }))}
+          />
         </div>
         <div className="form-group">
           <label>Where you met</label>
