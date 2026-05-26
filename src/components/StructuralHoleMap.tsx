@@ -45,6 +45,16 @@ interface Node {
   r: number;
   hex: string;
   tier: RelationshipTier;
+  company: string;
+}
+
+interface CompanyCluster {
+  company: string;
+  cx: number;
+  cy: number;
+  count: number;
+  outerR: number;
+  hex: string;
 }
 
 function srand(seed: number): number {
@@ -52,7 +62,7 @@ function srand(seed: number): number {
   return x - Math.floor(x);
 }
 
-function layout(contacts: Contact[], cx: number, cy: number): Node[] {
+function layout(contacts: Contact[], cx: number, cy: number): { nodes: Node[]; clusters: CompanyCluster[] } {
   const groups: Partial<Record<ContactType, Contact[]>> = {};
   contacts.forEach(c => (groups[c.type] ??= []).push(c));
 
@@ -63,6 +73,8 @@ function layout(contacts: Contact[], cx: number, cy: number): Node[] {
     if (!cfg) continue;
 
     const sorted = [...grp].sort((a, b) => {
+      const cmp = a.company.localeCompare(b.company);
+      if (cmp !== 0) return cmp;
       const tO: Record<string, number> = { tier_1_inner_circle: 0, tier_2_strategic: 1, tier_3_dormant: 2 };
       const hO: Record<string, number> = { hot: 0, warm: 1, cold: 2, '': 3 };
       const ta = tO[computeTier(a)] ?? 2, tb = tO[computeTier(b)] ?? 2;
@@ -83,7 +95,7 @@ function layout(contacts: Contact[], cx: number, cy: number): Node[] {
 
       const s1 = i * 17 + type.charCodeAt(0) * 31;
       const s2 = i * 23 + (type.charCodeAt(1) ?? 0) * 37;
-      const angle = base + (srand(s1) - 0.5) * 14;
+      const angle = base + (srand(s1) - 0.5) * 8;
       const dist = dMin + (dMax - dMin) * srand(s2);
 
       const rad = (angle * Math.PI) / 180;
@@ -94,16 +106,38 @@ function layout(contacts: Contact[], cx: number, cy: number): Node[] {
         r,
         hex: cfg.hex,
         tier,
+        company: c.company,
       });
     });
   }
-  return nodes;
+
+  const companyMap = new Map<string, { xs: number[]; ys: number[]; hex: string; maxR: number }>();
+  nodes.forEach(n => {
+    const key = n.company;
+    const entry = companyMap.get(key) ?? { xs: [], ys: [], hex: n.hex, maxR: 0 };
+    entry.xs.push(n.x);
+    entry.ys.push(n.y);
+    const dist = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2);
+    if (dist > entry.maxR) entry.maxR = dist;
+    companyMap.set(key, entry);
+  });
+
+  const clusters: CompanyCluster[] = [];
+  companyMap.forEach((v, company) => {
+    if (v.xs.length >= 2) {
+      const avgX = v.xs.reduce((s, x) => s + x, 0) / v.xs.length;
+      const avgY = v.ys.reduce((s, y) => s + y, 0) / v.ys.length;
+      clusters.push({ company, cx: avgX, cy: avgY, count: v.xs.length, outerR: v.maxR, hex: v.hex });
+    }
+  });
+
+  return { nodes, clusters };
 }
 
 export default function StructuralHoleMap({ contacts }: Props) {
   const [hov, setHov] = useState<number | null>(null);
 
-  const nodes = useMemo(() => layout(contacts, CX, CY), [contacts]);
+  const { nodes, clusters } = useMemo(() => layout(contacts, CX, CY), [contacts]);
 
   const counts = useMemo(() => {
     const m: Partial<Record<ContactType, number>> = {};
@@ -125,6 +159,7 @@ export default function StructuralHoleMap({ contacts }: Props) {
   }
 
   const hovNode = hov !== null ? nodes[hov] : null;
+  const hovCompany = hovNode?.company ?? null;
 
   return (
     <div className="hole-wrap">
@@ -167,25 +202,45 @@ export default function StructuralHoleMap({ contacts }: Props) {
           <circle cx={CX} cy={CY} r={180} fill="none" stroke="#DCE8D4" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3" />
           <circle cx={CX} cy={CY} r={240} fill="none" stroke="#DCE8D4" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.2" />
 
-          {nodes.map((n, i) => (
-            <line
-              key={`e${i}`}
-              x1={CX} y1={CY} x2={n.x} y2={n.y}
-              stroke={n.hex}
-              strokeWidth={hov === i ? 1.5 : 0.4}
-              opacity={hov === i ? 0.5 : 0.12}
-            />
-          ))}
+          {nodes.map((n, i) => {
+            const sameOrg = hovCompany !== null && n.company === hovCompany;
+            return (
+              <line
+                key={`e${i}`}
+                x1={CX} y1={CY} x2={n.x} y2={n.y}
+                stroke={n.hex}
+                strokeWidth={hov === i ? 1.5 : sameOrg ? 1 : 0.4}
+                opacity={hov === i ? 0.5 : sameOrg ? 0.35 : 0.12}
+              />
+            );
+          })}
 
           <circle cx={CX} cy={CY} r={28} fill="#3D6027" />
           <text x={CX} y={CY - 4} textAnchor="middle" fill="white" fontSize="13" fontWeight="700">S3</text>
           <text x={CX} y={CY + 9} textAnchor="middle" fill="white" fontSize="8" opacity="0.8">Capital</text>
 
+          {clusters.map(cl => (
+            <text
+              key={cl.company}
+              x={cl.cx}
+              y={cl.cy + cl.count * 6 + 14}
+              textAnchor="middle"
+              fill={cl.hex}
+              fontSize="7"
+              opacity={hovCompany === cl.company ? 0.9 : 0.4}
+              fontWeight={hovCompany === cl.company ? '600' : '400'}
+            >
+              {cl.company.length > 20 ? cl.company.slice(0, 18) + '…' : cl.company}
+              {cl.count > 2 ? ` (${cl.count})` : ''}
+            </text>
+          ))}
+
           {nodes.map((n, i) => {
             const hot = n.c.heat === 'hot';
             const warm = n.c.heat === 'warm';
             const isH = hov === i;
-            const dim = hov !== null && !isH;
+            const sameOrg = hovCompany !== null && n.company === hovCompany;
+            const dim = hov !== null && !isH && !sameOrg;
             return (
               <g
                 key={i}
@@ -205,8 +260,8 @@ export default function StructuralHoleMap({ contacts }: Props) {
                   cx={n.x} cy={n.y}
                   r={isH ? n.r + 2 : n.r}
                   fill={n.hex}
-                  stroke={isH ? '#1a1a18' : 'white'}
-                  strokeWidth={isH ? 2 : 1}
+                  stroke={isH ? '#1a1a18' : sameOrg ? n.hex : 'white'}
+                  strokeWidth={isH ? 2 : sameOrg ? 1.5 : 1}
                   opacity={dim ? 0.3 : 0.9}
                 />
                 {(isH || n.tier === 'tier_1_inner_circle') && (

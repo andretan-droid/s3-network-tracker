@@ -34,8 +34,6 @@ export default function FollowUpQueue({ contacts, onMarkTouched }: Props) {
       return tierOrder[computeTier(a)] - tierOrder[computeTier(b)];
     });
 
-  const decayingTier2 = due.filter(c => computeTier(c) === 'tier_2_strategic' || computeTier(c) === 'tier_3_dormant');
-
   if (!due.length) {
     return (
       <div className="followup-empty">
