@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, createContext, useContext } from 'react';
+import { useState, useCallback, createContext, useContext } from 'react';
 
 type ToastFn = (msg: string) => void;
 const ToastContext = createContext<ToastFn>(() => {});

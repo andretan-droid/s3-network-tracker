@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import type { Contact, ContactType, HeatLevel, Frequency } from '../types';
-import { STAFF_ROSTER } from '../types';
 
 interface Props {
   editingContact: Contact | null;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchContacts, getCachedContacts } from '../services/excelService';
+import { fetchContacts } from '../services/excelService';
 import type { Contact } from '../types';
 
 export function useContacts(pollInterval = 60_000) {

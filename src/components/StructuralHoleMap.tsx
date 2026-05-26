@@ -35,7 +35,6 @@ export default function StructuralHoleMap({ contacts }: Props) {
   const partners = contacts.filter(c => c.type === 'partner');
   const unclassified = contacts.filter(c => c.type === 'unclassified');
 
-  const total = contacts.length || 1;
   const ratio = clients.length && capital.length
     ? (clients.length / capital.length).toFixed(1)
     : 'N/A';
