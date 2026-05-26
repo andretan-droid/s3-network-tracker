@@ -74,6 +74,7 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
   const clients = contacts.filter(c => c.type === 'client');
   const capital = contacts.filter(c => c.type === 'capital_provider');
   const partners = contacts.filter(c => c.type === 'partner');
+  const educational = contacts.filter(c => c.type === 'educational');
   const unclassified = contacts.filter(c => c.type === 'unclassified');
   const due = contacts.filter(isDue);
 
@@ -113,6 +114,7 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
     { type: 'client', label: 'Clients', count: clients.length, color: 'var(--client)' },
     { type: 'capital_provider', label: 'Capital Providers', count: capital.length, color: 'var(--capital)' },
     { type: 'partner', label: 'Partners / Referrers', count: partners.length, color: 'var(--partner)' },
+    { type: 'educational', label: 'Educational', count: educational.length, color: 'var(--educational)' },
     { type: 'unclassified', label: 'Unclassified', count: unclassified.length, color: 'var(--text-muted)' },
   ];
 

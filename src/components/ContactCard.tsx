@@ -29,6 +29,7 @@ const badgeClasses: Record<string, string> = {
   client: 'badge-client',
   capital_provider: 'badge-capital',
   partner: 'badge-partner',
+  educational: 'badge-educational',
   unclassified: 'badge-unclassified',
 };
 
@@ -42,7 +43,7 @@ export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelet
   const days = daysSince(c.lastTouched);
   const due = isDue(c);
   const tier = computeTier(c);
-  const meta = [c.position, c.company, c.eventMet ? `met at ${c.eventMet}` : ''].filter(Boolean).join(' · ');
+  const subtitle = [c.position, c.eventMet ? `met at ${c.eventMet}` : ''].filter(Boolean).join(' · ');
 
   return (
     <div className={`contact-card ${due ? 'contact-card-due' : ''}`}>
@@ -52,7 +53,8 @@ export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelet
           {c.name}
           {due && <span className="due-badge">Due</span>}
         </div>
-        <div className="contact-meta">{meta}</div>
+        {c.company && <div className="contact-company">{c.company}</div>}
+        {subtitle && <div className="contact-meta">{subtitle}</div>}
         {c.notes && (
           <div className="contact-note">
             {c.notes.length > 90 ? c.notes.substring(0, 90) + '…' : c.notes}

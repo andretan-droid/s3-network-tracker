@@ -198,6 +198,7 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
             <option value="client">Client</option>
             <option value="capital_provider">Capital provider (bank / investor)</option>
             <option value="partner">Partner / referrer</option>
+            <option value="educational">Educational (university, research, training)</option>
             <option value="unclassified">Unclassified</option>
           </select>
         </div>

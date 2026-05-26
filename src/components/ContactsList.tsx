@@ -18,6 +18,7 @@ const filters: { key: FilterType; label: string }[] = [
   { key: 'client', label: 'Clients' },
   { key: 'capital_provider', label: 'Capital providers' },
   { key: 'partner', label: 'Partners' },
+  { key: 'educational', label: 'Educational' },
   { key: 'unclassified', label: 'Unclassified' },
   { key: 'hot', label: 'Hot leads' },
 ];

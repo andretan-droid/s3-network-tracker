@@ -1,4 +1,4 @@
-export type ContactType = 'client' | 'capital_provider' | 'partner' | 'unclassified';
+export type ContactType = 'client' | 'capital_provider' | 'partner' | 'educational' | 'unclassified';
 export type HeatLevel = 'hot' | 'warm' | 'cold' | '';
 export type Frequency = 'biannual' | 'quarterly' | 'monthly' | 'asneeded' | '';
 export type InteractionType = 'meeting' | 'call' | 'email' | 'event';
@@ -62,6 +62,7 @@ export const TYPE_LABELS: Record<ContactType, string> = {
   client: 'Client',
   capital_provider: 'Capital Provider',
   partner: 'Partner / Referrer',
+  educational: 'Educational',
   unclassified: 'Unclassified',
 };
 
