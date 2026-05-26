@@ -3,8 +3,8 @@ import { LogLevel } from '@azure/msal-browser';
 
 // ─── Replace these with your Azure AD app registration values ───
 // See docs/AZURE_SETUP_GUIDE.md for step-by-step instructions
-const CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'YOUR_CLIENT_ID';
-const TENANT_ID = import.meta.env.VITE_AZURE_TENANT_ID || 'YOUR_TENANT_ID';
+const CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'd2835b9d-9ef3-4cb1-9d43-c8c200e62aaa';
+const TENANT_ID = import.meta.env.VITE_AZURE_TENANT_ID || 'e5081217-bc55-42cf-a9c4-ff012e6900de';
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || window.location.origin;
 
 export const msalConfig: Configuration = {
