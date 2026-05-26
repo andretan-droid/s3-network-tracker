@@ -50,20 +50,7 @@ export default function FollowUpQueue({ contacts, onMarkTouched }: Props) {
     <div className="followup-wrap">
       <div className="followup-header">
         <h2>Follow-up Queue</h2>
-        <p className="followup-desc">
-          Contacts sorted by urgency. <strong>Tier 2 (Strategic) contacts decaying into Tier 3
-          are flagged first</strong> — these are your most valuable relationships per network
-          science and losing them is costly. Hot leads appear at the top regardless of tier.
-        </p>
       </div>
-
-      {decayingTier2.length > 3 && (
-        <div className="dash-alert" style={{ marginBottom: 16 }}>
-          <strong>{decayingTier2.length} strategic or dormant contacts</strong> are overdue for
-          follow-up. These contacts are at the boundary of your network — they bridge
-          the most novel information. Re-engage them before they go cold.
-        </div>
-      )}
 
       <div className="followup-stats">
         <span className="followup-stat">

@@ -212,12 +212,7 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
       {/* Header */}
       <div className="dash-header">
         <div>
-          <h2 className="dash-title">{viewLabel} Network Intelligence</h2>
-          <p className="dash-subtitle">
-            {staffView === 'all'
-              ? 'Strategic overview of Sage3 Capital\'s relationship capital across the structural hole.'
-              : `${staffView}'s network contribution and relationship portfolio.`}
-          </p>
+          <h2 className="dash-title">{viewLabel} Dashboard</h2>
         </div>
       </div>
 
@@ -244,30 +239,17 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
       {/* Health + Network Balance Row */}
       <div className="dash-grid-2">
         <div className="dash-card">
-          <h3 className="dash-card-title">Structural Hole Health</h3>
-          <p className="dash-card-desc">
-            Composite score measuring how effectively the firm brokers the gap between
-            clients and capital providers.
-          </p>
+          <h3 className="dash-card-title">Network Health</h3>
           <div className="health-row">
             <HealthGauge score={healthScore} label="Overall" />
             <HealthGauge score={balanceScore} label="Balance" />
             <HealthGauge score={tierScore} label="Tier depth" />
             <HealthGauge score={shPct} label="Meeting focus" />
           </div>
-          <p className="health-insight">
-            {healthScore >= 75 && 'Excellent strategic positioning — the firm is actively bridging both sides of the hole.'}
-            {healthScore >= 50 && healthScore < 75 && 'Good foundation, but there\'s room to strengthen either your contact balance, relationship depth, or meeting allocation.'}
-            {healthScore < 50 && 'Action needed — review your contact mix, follow-up cadence, and meeting focus to strengthen your structural hole position.'}
-          </p>
         </div>
 
         <div className="dash-card">
           <h3 className="dash-card-title">Network Composition</h3>
-          <p className="dash-card-desc">
-            The structural hole exists between clients who need capital/advisory and
-            providers who need deal flow. An imbalanced network weakens your brokerage position.
-          </p>
           <DonutChart
             data={typeBreakdown.map(t => ({ label: t.label, count: t.count, color: t.color }))}
           />
@@ -284,12 +266,6 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
       {/* Tier Distribution */}
       <div className="dash-card">
         <h3 className="dash-card-title">Relationship Tiers</h3>
-        <p className="dash-card-desc">
-          Auto-calculated from interaction history. Tier 2 (Strategic) contacts — those
-          you engage roughly twice a year — are the most valuable per network science.
-          They sit at the edge of your network and broker the most novel information.
-          Watch for Tier 2 contacts decaying into Tier 3.
-        </p>
         <div className="tier-bars">
           <TierBar
             tier="tier_1_inner_circle"

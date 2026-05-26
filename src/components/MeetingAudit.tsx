@@ -66,11 +66,7 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
 
   return (
     <div className="weekly-form">
-      <h3 className="weekly-form-title">Log a Meeting from Weekly Report</h3>
-      <p className="weekly-form-desc">
-        Directors submit weekly work and meeting reports. Log each meeting here so the
-        app can categorize and track your time allocation across the structural hole.
-      </p>
+      <h3 className="weekly-form-title">Log a Meeting</h3>
       <div className="weekly-form-grid">
         <div className="form-group">
           <label>Date</label>
@@ -157,11 +153,6 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
       <div className="audit-header">
         <div>
           <h2>Meeting Audit</h2>
-          <p className="audit-desc">
-            Every meeting should be evaluated against whether it advances the firm across
-            the structural hole. This view shows how your interactions break down between
-            client-side, capital-side, internal, and other activities.
-          </p>
         </div>
         <button
           className={`btn-primary ${showForm ? 'btn-active' : ''}`}
