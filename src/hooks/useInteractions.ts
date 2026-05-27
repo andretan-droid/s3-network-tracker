@@ -13,7 +13,7 @@ export function useInteractions(pollInterval = 60_000) {
       const data = await fetchInteractions();
       if (mountedRef.current) setInteractions(data);
     } catch {
-      // silent fail for interactions — contacts are primary
+      // silent fail for interactions; contacts are primary
     } finally {
       if (mountedRef.current) setLoading(false);
     }
