@@ -12,7 +12,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import type { Contact, ContactType, HeatLevel, Frequency } from '../types';
+import type { Contact, ContactType, HeatLevel } from '../types';
 import NetworkMap3D from './NetworkMap3D';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -57,6 +57,7 @@ const TYPE_DISPLAY: Record<ContactType, { label: string; color: string; bg: stri
   client:           { label: 'Client',       color: '#22D3EE', bg: 'rgba(34,211,238,0.10)',  border: 'rgba(34,211,238,0.22)'  },
   capital_provider: { label: 'Capital',      color: '#A78BFA', bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.22)' },
   partner:          { label: 'Partner',      color: '#6EE7B7', bg: 'rgba(110,231,183,0.10)', border: 'rgba(110,231,183,0.22)' },
+  educational:      { label: 'Educational',  color: '#C084FC', bg: 'rgba(192,132,252,0.10)', border: 'rgba(192,132,252,0.22)' },
   unclassified:     { label: 'Unclassified', color: '#64748B', bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.20)' },
 };
 
@@ -64,6 +65,7 @@ const HEAT_COLOR: Record<HeatLevel, string> = {
   hot:  '#F87171',
   warm: '#FBBF24',
   cold: '#475569',
+  '':   '#334155',
 };
 
 // ── Reusable styled helpers ───────────────────────────────────────────────────
