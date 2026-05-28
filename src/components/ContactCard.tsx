@@ -6,7 +6,7 @@ import { Check, Pencil, Trash2, Mail, Phone } from './ui/icons';
 interface Props {
   contact: Contact;
   onMarkTouched: (id: string) => void;
-  onEdit: (id: string) => void;
+  onEdit: (contact: Contact) => void;
   onDelete: (id: string) => void;
 }
 
@@ -72,7 +72,7 @@ export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelet
           <button className="action-btn touch" onClick={() => onMarkTouched(c.id)}>
             <Check /> Mark touched
           </button>
-          <button className="action-btn" onClick={() => onEdit(c.id)}>
+          <button className="action-btn" onClick={() => onEdit(c)}>
             <Pencil /> Edit
           </button>
           <button className="action-btn danger" onClick={() => onDelete(c.id)}>

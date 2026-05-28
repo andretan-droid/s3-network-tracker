@@ -46,7 +46,7 @@ import { ChevronRight, Pencil } from './ui/icons';
 interface Props {
   contacts: Contact[];
   onBulkUpdate: (updates: Contact[], onProgress?: (done: number, total: number) => void) => Promise<void>;
-  onEdit: (id: string) => void;
+  onEdit: (contact: Contact) => void;
 }
 
 // ── Bulk-edit field definitions (simulated; real bulk edit is in App.tsx) ────
@@ -618,7 +618,7 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
                         <HeatDot heat={c.heat} />
                         <TypeTag type={c.type} />
                         <button
-                          onClick={e => { e.stopPropagation(); onEdit(c.id); }}
+                          onClick={e => { e.stopPropagation(); onEdit(c); }}
                           style={{
                             ...miniBtn,
                             display: 'inline-flex', alignItems: 'center', gap: 4,

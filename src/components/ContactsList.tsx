@@ -10,7 +10,7 @@ type FilterType = 'all' | ContactType | 'hot';
 interface Props {
   contacts: Contact[];
   onMarkTouched: (id: string) => void;
-  onEdit: (id: string) => void;
+  onEdit: (contact: Contact) => void;
   onDelete: (id: string) => void;
   onMergeAll: () => Promise<void>;
   onBulkUpdate: (

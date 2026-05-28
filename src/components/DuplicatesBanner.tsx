@@ -5,7 +5,7 @@ import { Button, useDialog } from './ui';
 
 interface Props {
   contacts: Contact[];
-  onEdit: (id: string) => void;
+  onEdit: (contact: Contact) => void;
   onMergeAll: () => Promise<void>;
 }
 
@@ -71,7 +71,7 @@ export default function DuplicatesBanner({ contacts, onEdit, onMergeAll }: Props
             <span className="dupes-name">{group[0].name}</span>
             <div className="dupes-owners">
               {group.map(c => (
-                <button key={c.id} className="dupes-owner-btn" onClick={() => onEdit(c.id)}>
+                <button key={c.id || c.name} className="dupes-owner-btn" onClick={() => onEdit(c)}>
                   {c.owners || 'Unknown'} · {c.company}
                 </button>
               ))}

@@ -76,10 +76,23 @@ export async function addContact(data: Omit<Contact, 'id' | 'dateAdded'>): Promi
 }
 
 export async function updateContact(contact: Contact): Promise<void> {
-  const idx = contactsRowMap.get(contact.id);
-  if (idx === undefined) throw new Error('Contact not found in cache');
-  await updateTableRow('Contacts', idx, contactToRow(contact));
-  contactsCache[idx] = contact;
+  let idx = contactsRowMap.get(contact.id);
+
+  // Fallback for imported contacts without UUIDs: match by name + company
+  if (idx === undefined) {
+    idx = contactsCache.findIndex(
+      c => c.name === contact.name && c.company === contact.company,
+    );
+    if (idx === -1) throw new Error(`Contact "${contact.name}" not found in cache`);
+  }
+
+  // Auto-assign a UUID so subsequent edits use the normal ID-based path
+  const toSave: Contact = contact.id ? contact : { ...contact, id: uuid() };
+
+  await updateTableRow('Contacts', idx, contactToRow(toSave));
+  contactsCache[idx] = toSave;
+  // Rebuild rowMap entry: removes the stale '' key and adds the new UUID key
+  contactsRowMap = new Map(contactsCache.map((c, i) => [c.id, i]));
 }
 
 export async function removeContact(id: string): Promise<void> {

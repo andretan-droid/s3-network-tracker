@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Routes, Route, NavLink, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { loginRequest } from './services/authConfig';
 import { initGraphClient } from './services/graphClient';
@@ -50,47 +50,48 @@ const NAV: NavItem[] = [
 ];
 
 /* ────────────────────────────────────────────────────────────
-   AddEditContactRoute — wires :id param into the form component
+   EditContactRoute — reads the contact from navigation state.
+   This avoids putting the contact ID in the URL, which would
+   fail for the majority of imported contacts that have no UUID.
    ──────────────────────────────────────────────────────────── */
 
-interface AddEditContactRouteProps {
-  mode: 'new' | 'edit';
-  contacts: Contact[];
+interface EditContactRouteProps {
   currentUser: string;
   onSave: (data: Omit<Contact, 'id' | 'dateAdded'>) => Promise<void>;
   onUpdate: (contact: Contact) => Promise<void>;
 }
 
-function AddEditContactRoute({ mode, contacts, currentUser, onSave, onUpdate }: AddEditContactRouteProps) {
-  const { id } = useParams<{ id: string }>();
+function EditContactRoute({ currentUser, onSave, onUpdate }: EditContactRouteProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const contact = (location.state as { contact?: Contact } | null)?.contact ?? null;
 
-  if (mode === 'edit') {
-    const editing = id ? contacts.find(c => c.id === id) : null;
-    // Contacts still loading — show spinner rather than a blank add form
-    if (contacts.length === 0) {
-      return (
-        <div className="loading">
-          <span className="spinner" />
-          Loading contact...
-        </div>
-      );
-    }
-    // Contact not found after load — bad link or deleted by another user
-    if (id && !editing) {
-      return <Navigate to="/contacts" replace />;
-    }
-    return (
-      <AddEditContact
-        editingContact={editing ?? null}
-        currentUser={currentUser}
-        onSave={onSave}
-        onUpdate={onUpdate}
-        onClear={() => navigate('/contacts')}
-      />
-    );
+  if (!contact) {
+    return <Navigate to="/contacts" replace />;
   }
 
+  return (
+    <AddEditContact
+      editingContact={contact}
+      currentUser={currentUser}
+      onSave={onSave}
+      onUpdate={onUpdate}
+      onClear={() => navigate('/contacts')}
+    />
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   AddContactRoute — add-new form, stays on /contacts/new
+   ──────────────────────────────────────────────────────────── */
+
+interface AddContactRouteProps {
+  currentUser: string;
+  onSave: (data: Omit<Contact, 'id' | 'dateAdded'>) => Promise<void>;
+  onUpdate: (contact: Contact) => Promise<void>;
+}
+
+function AddContactRoute({ currentUser, onSave, onUpdate }: AddContactRouteProps) {
   return (
     <AddEditContact
       editingContact={null}
@@ -174,8 +175,10 @@ function AppContent() {
   );
 
   const handleEdit = useCallback(
-    (id: string) => {
-      navigate(`/contacts/${id}/edit`);
+    (contact: Contact) => {
+      // Pass the full contact via navigation state — avoids putting the ID in
+      // the URL, which breaks for the majority of imported contacts with no UUID.
+      navigate('/contacts/edit', { state: { contact } });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [navigate]
@@ -552,9 +555,7 @@ function AppContent() {
               <Route
                 path="/contacts/new"
                 element={
-                  <AddEditContactRoute
-                    mode="new"
-                    contacts={contacts}
+                  <AddContactRoute
                     currentUser={userName}
                     onSave={handleSave}
                     onUpdate={handleUpdate}
@@ -562,11 +563,9 @@ function AppContent() {
                 }
               />
               <Route
-                path="/contacts/:id/edit"
+                path="/contacts/edit"
                 element={
-                  <AddEditContactRoute
-                    mode="edit"
-                    contacts={contacts}
+                  <EditContactRoute
                     currentUser={userName}
                     onSave={handleSave}
                     onUpdate={handleUpdate}
