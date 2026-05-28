@@ -27,6 +27,29 @@ export type MeetingCategory = 'client_side' | 'capital_side' | 'neither' | 'inte
 export type StaffLevel = 'executive_director' | 'associate_director' | 'staff';
 export type RelationshipTier = 'tier_1_inner_circle' | 'tier_2_strategic' | 'tier_3_dormant';
 
+/**
+ * Sub-type for capital providers. Used to place them into one of 5 sector
+ * arcs on the Structural Hole Map. Empty string means untagged — the node
+ * lands in the "Other" catch-all sector until a director tags it via
+ * Edit Contact → Classification → Capital sub-type.
+ */
+export type CapitalSubType =
+  | 'bank'
+  | 'investment_bank'
+  | 'pe_vc_fund'
+  | 'family_office'
+  | 'other'
+  | '';
+
+export const CAPITAL_SUBTYPE_LABELS: Record<CapitalSubType, string> = {
+  bank:             'Commercial Bank',
+  investment_bank:  'Investment Bank',
+  pe_vc_fund:       'PE / VC Fund',
+  family_office:    'Family Office',
+  other:            'Other',
+  '':               'Untagged',
+};
+
 export interface Contact {
   id: string;
   name: string;
@@ -37,6 +60,8 @@ export interface Contact {
   phoneOffice: string;
   linkedin: string;
   type: ContactType;
+  /** Only meaningful when type === 'capital_provider'. '' until tagged. */
+  subType: CapitalSubType;
   heat: HeatLevel;
   frequency: Frequency;
   eventMet: string;

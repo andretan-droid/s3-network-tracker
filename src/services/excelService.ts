@@ -1,9 +1,10 @@
 import { v4 as uuid } from 'uuid';
 import { readTable, readTableHeaders, addTableRow, addTableRows, addTableColumn, updateTableRow, deleteTableRow, clearTableData } from './graphClient';
-import type { Contact, Interaction, ContactType, HeatLevel, Frequency, InteractionType, MeetingCategory } from '../types';
+import type { Contact, Interaction, ContactType, HeatLevel, Frequency, InteractionType, MeetingCategory, CapitalSubType } from '../types';
 
 // ─── Column order must match the Excel table exactly ─────────
-// Contacts: id | name | company | position | email | phoneMobile | phoneOffice | linkedin | type | heat | frequency | eventMet | notes | owners | dateAdded | lastTouched
+// Contacts:     id | name | company | position | email | phoneMobile | phoneOffice | linkedin | type | heat | frequency | eventMet | notes | owners | dateAdded | lastTouched | subType
+//   subType — capital provider sub-category; auto-provisioned on first fetchContacts if missing.
 // Interactions: id | contactId | date | type | notes | loggedBy | category | attendees
 //   contactId  — comma-separated contact IDs (multi-contact meetings)
 //   attendees  — comma-separated Sage3 staff names who attended (beyond loggedBy)
@@ -34,15 +35,21 @@ function parseContact(row: string[]): Contact {
     owners: cell(row[13]),
     dateAdded: cell(row[14]),
     lastTouched: cell(row[15]),
+    subType: (cell(row[16]) || '') as CapitalSubType,
   };
 }
 
+// Set to true once fetchContacts confirms the subType column exists in Excel.
+let contactsHasSubTypeCol = false;
+
 function contactToRow(c: Contact): string[] {
-  return [
+  const row = [
     c.id, c.name, c.company, c.position, c.email, c.phoneMobile,
     c.phoneOffice, c.linkedin, c.type, c.heat, c.frequency,
     c.eventMet, c.notes, c.owners, c.dateAdded, c.lastTouched,
   ];
+  if (contactsHasSubTypeCol) row.push(c.subType || '');
+  return row;
 }
 
 // Excel stores dates as serial integers (days since Dec 30 1899).
@@ -85,6 +92,22 @@ let contactsCache: Contact[] = [];
 let contactsRowMap: Map<string, number> = new Map();
 
 export async function fetchContacts(): Promise<Contact[]> {
+  // Ensure the subType column exists before reading rows (same pattern as attendees).
+  if (!contactsHasSubTypeCol) {
+    try {
+      const headers = await readTableHeaders('Contacts');
+      if (headers.includes('subType')) {
+        contactsHasSubTypeCol = true;
+      } else {
+        await addTableColumn('Contacts', 'subType');
+        contactsHasSubTypeCol = true;
+        console.log('[Excel] Added subType column to Contacts table');
+      }
+    } catch (e) {
+      console.warn('[Excel] Could not ensure subType column:', e);
+    }
+  }
+
   const rows = await readTable('Contacts');
   contactsCache = rows.map(parseContact);
   contactsRowMap = new Map(contactsCache.map((c, i) => [c.id, i]));

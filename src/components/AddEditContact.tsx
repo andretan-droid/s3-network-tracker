@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Contact, ContactType, HeatLevel, Frequency } from '../types';
+import type { Contact, ContactType, HeatLevel, Frequency, CapitalSubType } from '../types';
 import { STAFF_ROSTER } from '../types';
 import { Card, CardHeader, CardFooter, Button, Disclosure, useDialog } from './ui';
 import { Plus, X } from './ui/icons';
@@ -21,6 +21,7 @@ const emptyForm = {
   phoneOffice: '',
   linkedin: '',
   type: 'unclassified' as ContactType,
+  subType: '' as CapitalSubType,
   heat: '' as HeatLevel,
   frequency: '' as Frequency,
   eventMet: '',
@@ -165,6 +166,7 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
         phoneOffice: editingContact.phoneOffice,
         linkedin: editingContact.linkedin,
         type: editingContact.type,
+        subType: editingContact.subType,
         heat: editingContact.heat,
         frequency: editingContact.frequency,
         eventMet: editingContact.eventMet,
@@ -336,6 +338,19 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
                 </optgroup>
               </select>
             </div>
+            {form.type === 'capital_provider' && (
+              <div className="form-group">
+                <label>Capital sub-type</label>
+                <select value={form.subType} onChange={set('subType')}>
+                  <option value="">— Not tagged —</option>
+                  <option value="bank">Commercial Bank</option>
+                  <option value="investment_bank">Investment Bank</option>
+                  <option value="pe_vc_fund">PE / VC Fund</option>
+                  <option value="family_office">Family Office</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            )}
             <div className="form-group">
               <label>Lead heat</label>
               <select value={form.heat} onChange={set('heat')}>

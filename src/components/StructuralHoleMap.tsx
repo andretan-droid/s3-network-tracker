@@ -346,9 +346,41 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
     setSelectedIds(new Set());
   }, [selectedIds, contacts, bulkField, bulkValue, onBulkUpdate]);
 
+  // ── Network health summary (org-level counts, not person-level) ──────────
+  const clientSideOrgs  = network.viewOrgs.filter(o => o.side === 'client');
+  const capitalSideOrgs = network.viewOrgs.filter(o => o.side === 'capital');
+  const clientActiveOrgs  = clientSideOrgs.filter(o => o.activeCount > 0).length;
+  const capitalActiveOrgs = capitalSideOrgs.filter(o => o.activeCount > 0).length;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── Health summary strip — quick read of active vs. dormant orgs ── */}
+      <div className="sh-health-strip">
+        <div className="sh-health-item">
+          <span className="sh-health-dot" style={{ background: 'var(--client)' }} />
+          <span>
+            <strong>{clientSideOrgs.length}</strong> Client {clientSideOrgs.length === 1 ? 'org' : 'orgs'}
+          </span>
+          <span className="sh-health-muted">
+            — {clientActiveOrgs} active, {clientSideOrgs.length - clientActiveOrgs} dormant
+          </span>
+        </div>
+        <div className="sh-health-divider" />
+        <div className="sh-health-item">
+          <span className="sh-health-dot" style={{ background: 'var(--capital)' }} />
+          <span>
+            <strong>{capitalSideOrgs.length}</strong> Capital {capitalSideOrgs.length === 1 ? 'provider' : 'providers'}
+          </span>
+          <span className="sh-health-muted">
+            — {capitalActiveOrgs} active, {capitalSideOrgs.length - capitalActiveOrgs} dormant
+          </span>
+        </div>
+        <div className="sh-health-tip">
+          Tag capital providers with a sub-type via Edit Contact to enable sector grouping on the map
+        </div>
+      </div>
 
       {/* ── Director Brief — text-first action surface (primary) ──
            The brief passes a raw orgKey (one-per-firm), not a compound

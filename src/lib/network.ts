@@ -16,7 +16,7 @@
  * Cold Hubs are kept — they're the actionable half.
  */
 
-import type { Contact, ContactType, HeatLevel } from '../types';
+import type { Contact, ContactType, HeatLevel, CapitalSubType, RelationshipTier } from '../types';
 import { computeTier, isEcosystemType } from '../types';
 
 // ─── Graph types ─────────────────────────────────────────────────────────────
@@ -96,6 +96,18 @@ export interface SideOrgNode {
   otherSideCount: number;
   /** Number of `unclassified` colleagues at this firm. */
   unclassifiedCount: number;
+  /**
+   * The best (most active) relationship tier among all contacts on this side.
+   * Tier 1 beats Tier 2 beats Tier 3. Used to place the node at the correct
+   * concentric radius on the Structural Hole Map.
+   */
+  tier: RelationshipTier;
+  /**
+   * Capital provider sub-type (bank, investment_bank, pe_vc_fund, family_office,
+   * other, or '' for untagged). Determines which angular sector this node lands
+   * in on the right-hand capital arc. Only meaningful when side === 'capital'.
+   */
+  subType: CapitalSubType;
 }
 
 export function sideNodeId(orgKey: string, side: StructuralHoleSide): string {
@@ -192,6 +204,35 @@ export interface DerivedGraph {
  * are NOT included in either side's `contacts` array. They surface in the
  * panel as a "+ N unclassified colleagues" footnote.
  */
+/** Best (most active) tier among a set of contacts. */
+function bestTier(contacts: Contact[]): RelationshipTier {
+  for (const c of contacts) {
+    if (computeTier(c) === 'tier_1_inner_circle') return 'tier_1_inner_circle';
+  }
+  for (const c of contacts) {
+    if (computeTier(c) === 'tier_2_strategic') return 'tier_2_strategic';
+  }
+  return 'tier_3_dormant';
+}
+
+/**
+ * Pick the most-common non-empty subType among capital contacts at this org.
+ * Falls back to '' (untagged) if none are set.
+ */
+function bestSubType(contacts: Contact[]): CapitalSubType {
+  const counts: Partial<Record<CapitalSubType, number>> = {};
+  for (const c of contacts) {
+    if (!c.subType) continue;
+    counts[c.subType] = (counts[c.subType] ?? 0) + 1;
+  }
+  let best: CapitalSubType = '';
+  let bestCount = 0;
+  for (const [st, n] of Object.entries(counts) as [CapitalSubType, number][]) {
+    if (n > bestCount) { best = st; bestCount = n; }
+  }
+  return best;
+}
+
 function deriveSideNodes(org: OrgNode): SideOrgNode[] {
   const clientContacts  = org.contacts.filter(c => c.type === 'client');
   const capitalContacts = org.contacts.filter(c => c.type === 'capital_provider');
@@ -213,6 +254,8 @@ function deriveSideNodes(org: OrgNode): SideOrgNode[] {
       isColdHub: contacts.length > 0 && activeCount === 0,
       otherSideCount,
       unclassifiedCount,
+      tier: bestTier(contacts),
+      subType: side === 'capital' ? bestSubType(contacts) : '',
     };
   };
 
