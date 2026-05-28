@@ -2100,6 +2100,13 @@ body {
 }
 .add-coowner-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .add-coowner-btn svg { width: 12px; height: 12px; }
+.add-coowner-btn--required {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.add-coowner-btn--required:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); border-style: solid; }
 
 /* Mobile-friendly: stack heroes and composite gauge */
 @media (max-width: 900px) {

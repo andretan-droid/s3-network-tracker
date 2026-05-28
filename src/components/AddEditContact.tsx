@@ -43,12 +43,10 @@ function parseOwners(str: string): string[] {
 
 function OwnerBlock({
   value,
-  currentUser,
   onChange,
   forceOpen,
 }: {
   value: string;
-  currentUser: string;
   onChange: (val: string) => void;
   forceOpen: boolean;
 }) {
@@ -67,23 +65,19 @@ function OwnerBlock({
   const ads = STAFF_ROSTER.filter(s => s.level === 'associate_director');
   const staff = STAFF_ROSTER.filter(s => s.level === 'staff');
 
-  // Collapsed state: chip summary + "Add co-owner"
+  // Collapsed state: chip summary + expand button
   if (!isOpen) {
     return (
       <div className="owner-summary-row">
-        {selected.length === 0 ? (
-          <span className="owner-summary-chip">No owner — defaults to {currentUser}</span>
-        ) : (
-          selected.map(name => (
-            <span key={name} className="owner-summary-chip">{name}</span>
-          ))
-        )}
+        {selected.map(name => (
+          <span key={name} className="owner-summary-chip">{name}</span>
+        ))}
         <button
           type="button"
-          className="add-coowner-btn"
+          className={`add-coowner-btn${selected.length === 0 ? ' add-coowner-btn--required' : ''}`}
           onClick={() => setExpanded(true)}
         >
-          <Plus /> Add co-owner
+          <Plus /> {selected.length === 0 ? 'Add owner' : 'Add co-owner'}
         </button>
       </div>
     );
@@ -274,7 +268,6 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
             <label>Owner(s) *</label>
             <OwnerBlock
               value={form.owners}
-              currentUser={currentUser}
               onChange={val => setForm(prev => ({ ...prev, owners: val }))}
               forceOpen={ownerForceOpen}
             />

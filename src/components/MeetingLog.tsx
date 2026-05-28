@@ -24,9 +24,15 @@ const ALL_STAFF = 'all';
 const ALL_CATEGORY = 'all';
 
 function monthLabel(yyyymm: string): string {
+  if (yyyymm === 'Unknown') return 'Unknown date';
   const [y, m] = yyyymm.split('-');
   const date = new Date(Number(y), Number(m) - 1, 1);
-  return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  if (isNaN(date.getTime())) return yyyymm;
+  try {
+    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  } catch {
+    return yyyymm;
+  }
 }
 
 export default function MeetingLog({ interactions }: Props) {
@@ -208,11 +214,11 @@ export default function MeetingLog({ interactions }: Props) {
                 </thead>
                 <tbody>
                   {rows.map(i => (
-                    <tr key={i.id} className="meeting-log-row">
+                    <tr key={i.id || i.notes} className="meeting-log-row">
                       <td className="meeting-log-date">{i.date}</td>
                       <td>
-                        <span className={`badge ${categoryBadge[i.category]}`}>
-                          {categoryLabels[i.category]}
+                        <span className={`badge ${categoryBadge[i.category] ?? 'badge-unclassified'}`}>
+                          {categoryLabels[i.category] ?? i.category}
                         </span>
                       </td>
                       <td className="meeting-log-type">{i.type}</td>
