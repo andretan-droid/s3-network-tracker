@@ -48,12 +48,13 @@ export interface Contact {
 
 export interface Interaction {
   id: string;
-  contactId: string;
+  contactId: string;  // comma-separated IDs for multi-contact meetings
   date: string;
   type: InteractionType;
   notes: string;
   loggedBy: string;
   category: MeetingCategory;
+  attendees: string;  // comma-separated Sage3 staff who attended (beyond loggedBy)
 }
 
 export interface StaffMember {

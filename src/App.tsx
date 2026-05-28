@@ -616,7 +616,16 @@ function AppContent() {
               />
               <Route
                 path="/meeting-log"
-                element={<MeetingLog interactions={filteredInteractions} />}
+                element={
+                  <MeetingLog
+                    interactions={filteredInteractions}
+                    contacts={contacts}
+                    currentUser={userName}
+                    onLogMeeting={handleLogMeeting}
+                    onEditInteraction={handleEditInteraction}
+                    onDeleteInteraction={handleDeleteInteraction}
+                  />
+                }
               />
               {/* Catch-all: anything unknown drops you back at the dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,10 +1,13 @@
 import { v4 as uuid } from 'uuid';
-import { readTable, addTableRow, addTableRows, updateTableRow, deleteTableRow, clearTableData } from './graphClient';
+import { readTable, readTableHeaders, addTableRow, addTableRows, addTableColumn, updateTableRow, deleteTableRow, clearTableData } from './graphClient';
 import type { Contact, Interaction, ContactType, HeatLevel, Frequency, InteractionType, MeetingCategory } from '../types';
 
 // ─── Column order must match the Excel table exactly ─────────
 // Contacts: id | name | company | position | email | phoneMobile | phoneOffice | linkedin | type | heat | frequency | eventMet | notes | owners | dateAdded | lastTouched
-// Interactions: id | contactId | date | type | notes | loggedBy | category
+// Interactions: id | contactId | date | type | notes | loggedBy | category | attendees
+//   contactId  — comma-separated contact IDs (multi-contact meetings)
+//   attendees  — comma-separated Sage3 staff names who attended (beyond loggedBy)
+//   The attendees column is added automatically on first fetchInteractions if missing.
 
 // Graph API returns mixed types (string | number | boolean | null) even though
 // the table is typed as string[][]. Coerce every cell to string at the boundary.
@@ -42,20 +45,38 @@ function contactToRow(c: Contact): string[] {
   ];
 }
 
+// Excel stores dates as serial integers (days since Dec 30 1899).
+// When cells are formatted as Date, the Graph API returns the raw number.
+// Convert those to ISO strings; pass through any value that already looks like a date.
+function excelDateToISO(raw: string): string {
+  const n = Number(raw);
+  if (!isNaN(n) && n > 40000 && n < 60000) {
+    return new Date((n - 25569) * 86400 * 1000).toISOString().slice(0, 10);
+  }
+  return raw;
+}
+
 function parseInteraction(row: string[]): Interaction {
   return {
     id: cell(row[0]),
     contactId: cell(row[1]),
-    date: cell(row[2]),
+    date: excelDateToISO(cell(row[2])),
     type: (cell(row[3]) || 'meeting') as InteractionType,
     notes: cell(row[4]),
     loggedBy: cell(row[5]),
     category: (cell(row[6]) || 'neither') as MeetingCategory,
+    attendees: cell(row[7]),  // '' for rows that pre-date the attendees column
   };
 }
 
+// Set to true once fetchInteractions confirms the attendees column exists in Excel.
+// interactionToRow uses this flag to write 7 or 8 values so it never exceeds the table width.
+let interactionsHasAttendeesCol = false;
+
 function interactionToRow(i: Interaction): string[] {
-  return [i.id, i.contactId, i.date, i.type, i.notes, i.loggedBy, i.category];
+  const row = [i.id, i.contactId, i.date, i.type, i.notes, i.loggedBy, i.category];
+  if (interactionsHasAttendeesCol) row.push(i.attendees || '');
+  return row;
 }
 
 // ─── CONTACTS ────────────────────────────────────────────────
@@ -125,6 +146,7 @@ export async function markContactTouched(id: string, loggedBy: string): Promise<
     notes: 'Quick touch logged via app',
     loggedBy,
     category: categorizeByContactType(contact.type),
+    attendees: '',
   };
   await addTableRow('Interactions', interactionToRow(interaction));
 }
@@ -142,6 +164,25 @@ let interactionsCache: Interaction[] = [];
 let interactionsRowMap: Map<string, number> = new Map();
 
 export async function fetchInteractions(): Promise<Interaction[]> {
+  // Ensure the attendees column exists before reading rows.
+  // This runs once per session; subsequent calls use the cached flag.
+  if (!interactionsHasAttendeesCol) {
+    try {
+      const headers = await readTableHeaders('Interactions');
+      if (headers.includes('attendees')) {
+        interactionsHasAttendeesCol = true;
+      } else {
+        await addTableColumn('Interactions', 'attendees');
+        interactionsHasAttendeesCol = true;
+        console.log('[Excel] Added attendees column to Interactions table');
+      }
+    } catch (e) {
+      // Column check/add failed (e.g. API limitation). Log and continue
+      // without attendees — writes remain at 7 columns, no data is lost.
+      console.warn('[Excel] Could not ensure attendees column:', e);
+    }
+  }
+
   const rows = await readTable('Interactions');
   interactionsCache = rows.map(parseInteraction);
   interactionsRowMap = new Map(interactionsCache.map((i, idx) => [i.id, idx]));

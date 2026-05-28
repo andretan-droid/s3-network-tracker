@@ -230,3 +230,15 @@ export async function addTableRows(tableName: string, rows: (string | number | n
     .api(`${path}/workbook/tables/${tableName}/rows`)
     .post({ values: rows });
 }
+
+// Appends a new column to a table. The `values` array contains [header, ...dataRows].
+// Passing only [[headerName]] names the column; the API fills existing rows with ''.
+// Throws if the Graph API rejects the request (caller should catch).
+export async function addTableColumn(tableName: string, columnName: string): Promise<void> {
+  const client = getGraphClient();
+  const path = await resolveWorkbookPath();
+  const headers = await readTableHeaders(tableName);
+  await client
+    .api(`${path}/workbook/tables/${tableName}/columns/add`)
+    .post({ index: headers.length, values: [[columnName]] });
+}

@@ -63,6 +63,7 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
         category,
         notes: notes.trim(),
         loggedBy,
+        attendees: '',
       });
       setNotes('');
       setDate(new Date().toISOString().slice(0, 10));
