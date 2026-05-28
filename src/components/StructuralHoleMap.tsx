@@ -57,7 +57,7 @@ interface Props {
 // The previous version of this file silently dropped 4 of the 8 ContactType
 // values, so bulk-tagging an ecosystem contact was impossible from here.
 
-type BulkField = 'heat' | 'type' | 'frequency';
+type BulkField = 'heat' | 'type' | 'frequency' | 'subType';
 
 interface BulkOption { value: string; label: string; group?: string; }
 
@@ -83,12 +83,23 @@ const BULK_OPTIONS: Record<BulkField, BulkOption[]> = {
     { value: 'monthly',   label: 'Monthly'                 },
     { value: 'asneeded',  label: 'As needed'               },
   ],
+  // subType only applies to capital_provider contacts — runBulkUpdate silently
+  // filters out non-capital_providers from the selection before writing.
+  subType: [
+    { value: '',                 label: 'Untagged (clear)' },
+    { value: 'bank',             label: 'Commercial Bank' },
+    { value: 'investment_bank',  label: 'Investment Bank' },
+    { value: 'pe_vc_fund',       label: 'PE / VC Fund' },
+    { value: 'family_office',    label: 'Family Office' },
+    { value: 'other',            label: 'Other' },
+  ],
 };
 
 const BULK_FIELDS: { key: BulkField; label: string }[] = [
-  { key: 'heat',      label: 'Lead Heat'       },
-  { key: 'type',      label: 'Contact Type'    },
-  { key: 'frequency', label: 'Touch Frequency' },
+  { key: 'heat',      label: 'Lead Heat'         },
+  { key: 'type',      label: 'Contact Type'      },
+  { key: 'frequency', label: 'Touch Frequency'   },
+  { key: 'subType',   label: 'Capital sub-type'  },
 ];
 
 /**
@@ -331,12 +342,21 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
     setBulkValue(BULK_OPTIONS[f][0].value);
   };
 
+  // subType only applies to capital_provider contacts — when that field is selected,
+  // we silently skip non-capital_providers from the selection.
+  const eligibleForBulk = useMemo(() => {
+    const candidates = contacts.filter(c => selectedIds.has(c.id));
+    return bulkField === 'subType'
+      ? candidates.filter(c => c.type === 'capital_provider')
+      : candidates;
+  }, [contacts, selectedIds, bulkField]);
+
+  const skippedCount = selectedIds.size - eligibleForBulk.length;
+
   const runBulkUpdate = useCallback(async () => {
-    if (!selectedIds.size) return;
+    if (!eligibleForBulk.length) return;
     setBulkProgress(0);
-    const toUpdate = contacts
-      .filter(c => selectedIds.has(c.id))
-      .map(c => ({ ...c, [bulkField]: bulkValue }));
+    const toUpdate = eligibleForBulk.map(c => ({ ...c, [bulkField]: bulkValue }));
     await onBulkUpdate(toUpdate, (done, total) => {
       setBulkProgress(Math.round((done / total) * 100));
     });
@@ -344,7 +364,16 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
     await new Promise<void>(r => setTimeout(r, 1000));
     setBulkProgress(null);
     setSelectedIds(new Set());
-  }, [selectedIds, contacts, bulkField, bulkValue, onBulkUpdate]);
+  }, [eligibleForBulk, bulkField, bulkValue, onBulkUpdate]);
+
+  // Quick-select shortcuts — pre-populate selection for common bulk-tagging flows.
+  const selectAllByType = useCallback((type: Contact['type']) => {
+    setSelectedIds(new Set(
+      grouped.flatMap(g => g.rows)
+        .filter(c => c.type === type)
+        .map(c => c.id),
+    ));
+  }, [grouped]);
 
   // ── Network health summary (org-level counts, not person-level) ──────────
   const clientSideOrgs  = network.viewOrgs.filter(o => o.side === 'client');
@@ -465,7 +494,14 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
                 })()}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => selectAllByType('capital_provider')}
+                style={{ ...miniBtn, color: 'var(--capital)', borderColor: 'var(--capital)' }}
+                title="Select every capital provider in the filtered view — useful for bulk-tagging sub-types"
+              >
+                Select capital providers
+              </button>
               <button onClick={expandAll}   style={miniBtn}>Expand all</button>
               <button onClick={collapseAll} style={miniBtn}>Collapse all</button>
             </div>
@@ -528,9 +564,21 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Pr
               </div>
             ) : (
               <>
-                <button onClick={runBulkUpdate} style={applyBtn}>
-                  Apply to {selectedIds.size.toLocaleString()}
+                <button
+                  onClick={runBulkUpdate}
+                  style={{ ...applyBtn, opacity: eligibleForBulk.length === 0 ? 0.5 : 1 }}
+                  disabled={eligibleForBulk.length === 0}
+                >
+                  Apply to {eligibleForBulk.length.toLocaleString()}
+                  {skippedCount > 0 && (
+                    <span style={{ fontWeight: 400, opacity: 0.85 }}> ({skippedCount} skipped)</span>
+                  )}
                 </button>
+                {bulkField === 'subType' && skippedCount > 0 && (
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)', fontStyle: 'italic' }}>
+                    Sub-type only applies to capital providers
+                  </span>
+                )}
                 <button onClick={deselectAll} style={{ ...miniBtn, color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
                   Clear
                 </button>

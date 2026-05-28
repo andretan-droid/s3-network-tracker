@@ -2944,6 +2944,23 @@ body {
   pointer-events: none;
 }
 
+/* ── Tier-graded node labels ───────────────────────────────────
+   Tier 3 labels are smaller and muted so dense outer rings stay
+   scannable without ghosting the nodes themselves. */
+.netmap__node-label--tier-3-dormant {
+  font-size: 7px;
+  fill: var(--text-muted);
+  font-weight: 500;
+}
+.netmap__node-label--tier-2-strategic {
+  font-size: 9px;
+  fill: var(--text-secondary);
+  font-weight: 600;
+}
+.netmap__node-label--tier-1-inner-circle {
+  font-weight: 700;
+}
+
 /* ── Hover tooltip ──────────────────────────────────────────── */
 .netmap__tooltip {
   background: var(--surface-raise, var(--surface));

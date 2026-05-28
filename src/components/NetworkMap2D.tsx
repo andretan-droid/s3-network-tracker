@@ -8,23 +8,26 @@
  *
  * Capital providers are grouped by sub-type into 5 angular sectors that fan
  * across the right semicircle (Banks → Inv. Banks → PE/VC → Family Office →
- * Other). Within each sector, nodes sit at one of three concentric radii
- * based on relationship tier:
+ * Other). Within each sector, nodes pack into a *band* of concentric sub-rings
+ * keyed by relationship tier. Multi-ring packing means even a sector with
+ * 40+ nodes lays out cleanly without overlap — the extra nodes spill onto the
+ * next sub-ring outward instead of crowding the first one.
  *
- *   r = 170  Tier 1 — Active    (≤ 45 days since last touch)
- *   r = 250  Tier 2 — Strategic (46 – 200 days)
- *   r = 320  Tier 3 — Dormant   (> 200 days)
+ *   Tier 1 (Active,    ≤ 45 days)   →  band r = 180 – 215   (2 sub-rings)
+ *   Tier 2 (Strategic, 46-200 days) →  band r = 240 – 305   (3 sub-rings)
+ *   Tier 3 (Dormant,   > 200 days)  →  band r = 325 – 455   (5 sub-rings)
  *
- * Client nodes fan across a 160° left arc at the same three radii.
+ * Client nodes use the same packing across a 160° left arc.
  *
  * Visual encoding:
  *   Node size  18 / 14 / 10 px for tiers 1 / 2 / 3
- *   Opacity    100% / 75% / 30% for tiers 1 / 2 / 3
- *   Edges      drawn to tier 1 + 2 only; suppressed for tier 3 to cut clutter
- *   Labels     shown for tier 1 + 2; tier 3 name appears on hover tooltip only
+ *   Opacity    100% for every tier (we no longer fade dormant nodes — it
+ *              made the map look "ghosted" and was visually confusing)
+ *   Edges      tier-1 solid (55%), tier-2 dim (22%), tier-3 hairline (8%)
+ *   Labels     shown for every tier with tier-specific truncation
  *
- * Hover a node to see its name, sub-type, contact count, and last-touch info.
- * Tier guide rings and sector dividers are rendered as faint SVG decorations.
+ * Hover a node to see its full name, sub-type, contact count, last-touch
+ * info, and tier pill via the floating tooltip.
  */
 
 import { useMemo, useRef, useEffect, useState, memo } from 'react';
@@ -54,33 +57,36 @@ interface Props {
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 
-const VIEWBOX = { x: -540, y: -360, w: 1080, h: 720 };
+// Expanded from 1080×720 to give the outer tier-3 ring band more room.
+// Aspect ratio held at exactly 3:2 so the canvas scales without distortion.
+const VIEWBOX = { x: -720, y: -480, w: 1440, h: 960 };
 const HUB_R = 36;
 const CLUSTER_R = 26;
-const CLUSTER_RADIUS = 220;   // ecosystem cluster sits above hub, not too close to tier rings
+const CLUSTER_RADIUS = 230;   // ecosystem cluster above hub, clear of tier-1 inner ring
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 2.4;
 
-// Concentric radii for each tier — capped so that nodes at ±90° stay inside the viewBox
-const TIER_RADII: Record<RelationshipTier, number> = {
-  tier_1_inner_circle: 170,
-  tier_2_strategic:    250,
-  tier_3_dormant:      320,
+// Sub-ring radii within each tier band. When a sector+tier has more nodes
+// than fit on the first ring, overflow goes to the next ring outward.
+const TIER_RINGS: Record<RelationshipTier, number[]> = {
+  tier_1_inner_circle: [180, 215],
+  tier_2_strategic:    [240, 270, 305],
+  tier_3_dormant:      [325, 355, 390, 425, 455],
 };
 
-// SVG circle radius for the node's <circle> element
+// SVG circle radius for the node itself
 const TIER_NODE_RADII: Record<RelationshipTier, number> = {
   tier_1_inner_circle: 18,
   tier_2_strategic:    14,
   tier_3_dormant:      10,
 };
 
-// Group-level opacity so that dormant nodes fade into the background
-const TIER_OPACITY: Record<RelationshipTier, number> = {
-  tier_1_inner_circle: 1.00,
-  tier_2_strategic:    0.75,
-  tier_3_dormant:      0.30,
+// Visible character budget per tier — used to truncate labels in-place
+const TIER_LABEL_CHARS: Record<RelationshipTier, number> = {
+  tier_1_inner_circle: 16,
+  tier_2_strategic:    13,
+  tier_3_dormant:      10,
 };
 
 interface Sector {
@@ -107,7 +113,7 @@ const CLIENT_ARC = { center: 180, span: 160 };
 const SECTOR_BOUNDARIES = [-90, -54, -18, 18, 54, 90] as const;
 
 const GUIDE_INNER_R = 130;   // guide rings + dividers start just beyond the hub
-const GUIDE_OUTER_R = 335;   // guide rings end just beyond the tier-3 orbit
+const GUIDE_OUTER_R = 470;   // guide rings end just past the outermost tier-3 sub-ring
 
 // ─── Pure layout helpers ─────────────────────────────────────────────────────
 
@@ -139,32 +145,70 @@ function arcLayout(
 }
 
 /**
- * New sectored + concentric layout:
- *  - Capital side: 5 sub-type sectors × 3 tier radii
- *  - Client side:  160° arc × 3 tier radii
+ * Pack a set of nodes for one (sector, tier) into the tier's sub-rings.
+ *
+ * Capacity per ring is derived from arc length / minimum node spacing.
+ * Rings are filled outward; the outermost ring takes any overflow (which
+ * may then visually pack tighter — acceptable for extreme densities).
+ */
+function packSectorTier(
+  nodes: SideOrgNode[],
+  centerDeg: number,
+  spanDeg: number,
+  tier: RelationshipTier,
+): Map<string, Pos> {
+  const out = new Map<string, Pos>();
+  if (nodes.length === 0) return out;
+
+  const rings = TIER_RINGS[tier];
+  const nodeR = TIER_NODE_RADII[tier];
+  const minSpacing = 2 * nodeR + 6;          // node diameter + small padding
+  const usableSpan = spanDeg * 0.94;         // small inset so nodes don't kiss divider lines
+
+  // Capacity per ring based on arc length at that radius
+  const caps = rings.map(r => {
+    const arc = r * (usableSpan * Math.PI / 180);
+    return Math.max(1, Math.floor(arc / minSpacing));
+  });
+
+  let placed = 0;
+  for (let i = 0; i < rings.length; i++) {
+    if (placed >= nodes.length) break;
+    const isLast = i === rings.length - 1;
+    const want = isLast
+      ? nodes.length - placed                  // last ring absorbs all remaining
+      : Math.min(caps[i], nodes.length - placed);
+    const ringNodes = nodes.slice(placed, placed + want);
+    const positions = arcLayout(ringNodes, centerDeg, usableSpan, rings[i]);
+    for (const [id, pos] of positions) out.set(id, pos);
+    placed += want;
+  }
+
+  return out;
+}
+
+/**
+ * Full layout: 5 capital sectors × 3 tier bands + 1 client arc × 3 tier bands.
  */
 function computeOrgPositionsSectored(viewOrgs: SideOrgNode[]): Map<string, Pos> {
   const out = new Map<string, Pos>();
 
-  // ── Capital side ──────────────────────────────────────────────────────────
+  // ── Capital side ─────────────────────────────────────────────────────────
   const capitalOrgs = viewOrgs.filter(o => o.side === 'capital');
-
   for (const sector of CAPITAL_SECTORS) {
     const sectorOrgs = capitalOrgs.filter(o => sector.subTypes.includes(o.subType));
     for (const tier of ['tier_1_inner_circle', 'tier_2_strategic', 'tier_3_dormant'] as const) {
       const group = sectorOrgs.filter(o => o.tier === tier);
-      if (group.length === 0) continue;
-      const positions = arcLayout(group, sector.centerDeg, sector.spanDeg, TIER_RADII[tier]);
+      const positions = packSectorTier(group, sector.centerDeg, sector.spanDeg, tier);
       for (const [id, pos] of positions) out.set(id, pos);
     }
   }
 
-  // ── Client side ───────────────────────────────────────────────────────────
+  // ── Client side ──────────────────────────────────────────────────────────
   const clientOrgs = viewOrgs.filter(o => o.side === 'client');
   for (const tier of ['tier_1_inner_circle', 'tier_2_strategic', 'tier_3_dormant'] as const) {
     const group = clientOrgs.filter(o => o.tier === tier);
-    if (group.length === 0) continue;
-    const positions = arcLayout(group, CLIENT_ARC.center, CLIENT_ARC.span, TIER_RADII[tier]);
+    const positions = packSectorTier(group, CLIENT_ARC.center, CLIENT_ARC.span, tier);
     for (const [id, pos] of positions) out.set(id, pos);
   }
 
@@ -335,8 +379,8 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
 
         <g transform={worldTransform}>
 
-          {/* ── Tier guide rings (faint concentric circles) ─────────── */}
-          {([170, 250, 320] as const).map(r => (
+          {/* ── Tier band guide rings (one ring at the INNER edge of each band) ── */}
+          {([180, 240, 325] as const).map(r => (
             <circle key={`ring-${r}`} cx={0} cy={0} r={r} className="netmap__tier-ring" />
           ))}
 
@@ -356,7 +400,7 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
 
           {/* ── Capital sector labels (outer edge) ──────────────────── */}
           {CAPITAL_SECTORS.map(sector => {
-            const pos = polarToSvg(sector.centerDeg, GUIDE_OUTER_R + 20);
+            const pos = polarToSvg(sector.centerDeg, GUIDE_OUTER_R + 18);
             return (
               <text
                 key={`sec-lbl-${sector.id}`}
@@ -370,15 +414,13 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
             );
           })}
 
-          {/* ── Tier ring labels (bottom-right, outside capital arc) ── */}
+          {/* ── Tier ring inline labels (just inside lowest sector boundary) ── */}
           {([
-            [170, 'Active'],
-            [250, 'Strategic'],
-            [320, 'Dormant'],
+            [180, 'Active'],
+            [240, 'Strategic'],
+            [325, 'Dormant'],
           ] as const).map(([r, label]) => {
-            // Place just below the lowest sector (bank sector bottom = -90°)
-            // Offset inward slightly so labels don't sit on the ring line
-            const pos = polarToSvg(-82, r);
+            const pos = polarToSvg(-88, r);
             return (
               <text
                 key={`tier-lbl-${r}`}
@@ -402,12 +444,13 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
             className="netmap__axis netmap__axis--vertical"
           />
 
-          {/* ── Hub → side-node edges (suppressed for tier 3) ─────────── */}
+          {/* ── Hub → side-node edges (tier-graded opacity, never fully suppressed) ── */}
           {viewOrgs.map(node => {
-            if (node.tier === 'tier_3_dormant') return null;
             const p = orgPos.get(node.id);
             if (!p) return null;
-            const edgeOpacity = node.tier === 'tier_1_inner_circle' ? 0.55 : 0.22;
+            const edgeOpacity = node.tier === 'tier_1_inner_circle' ? 0.55
+              : node.tier === 'tier_2_strategic' ? 0.22
+              : 0.08;
             return (
               <line
                 key={`edge-${node.id}`}
@@ -463,16 +506,17 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
             </g>
           )}
 
-          {/* ── Side-nodes — clients on left, capital on right ─────────── */}
+          {/* ── Side-nodes (clients + capital providers) ─────────────── */}
           {viewOrgs.map(node => {
             const p = orgPos.get(node.id);
             if (!p) return null;
             const isSelected = selectedNodeId === node.id;
             const isDualRole = node.otherSideCount > 0;
             const nodeR = TIER_NODE_RADII[node.tier];
-            // Tier-3 labels only appear via the hover tooltip — labels would
-            // be tiny at 10px radius and overlap heavily at high node counts.
-            const showLabel = node.tier !== 'tier_3_dormant';
+            const maxChars = TIER_LABEL_CHARS[node.tier];
+            // Subtitle ("X contacts · N active") only on tier-1+2; tier-3 keeps
+            // a compact label only — full detail surfaces on hover tooltip.
+            const showSubLabel = node.tier !== 'tier_3_dormant';
 
             return (
               <g
@@ -486,7 +530,6 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
                   'netmap__hit',
                 ].filter(Boolean).join(' ')}
                 transform={`translate(${p.x} ${p.y})`}
-                opacity={TIER_OPACITY[node.tier]}
                 onClick={(e) => { e.stopPropagation(); handleOrgClick(node); }}
                 onMouseEnter={(e) => setTooltip({ node, screenX: e.clientX, screenY: e.clientY })}
                 onMouseLeave={() => setTooltip(null)}
@@ -516,22 +559,24 @@ function NetworkMap2D({ contacts, onOrgClick, selectedNodeId }: Props) {
                     opacity="0.6"
                   />
                 )}
-                {showLabel && (
-                  <>
-                    <text className="netmap__node-label" textAnchor="middle" y={nodeR + 14}>
-                      {node.label.length > 22
-                        ? `${node.label.slice(0, 20)}…`
-                        : node.label}
-                    </text>
-                    <text className="netmap__node-sub" textAnchor="middle" y={nodeR + 26}>
-                      {node.contactCount} {node.contactCount === 1 ? 'contact' : 'contacts'}
-                      {node.isColdHub
-                        ? ' · cold'
-                        : node.activeCount < node.contactCount
-                          ? ` · ${node.activeCount} active`
-                          : ''}
-                    </text>
-                  </>
+                <text
+                  className={`netmap__node-label netmap__node-label--${node.tier.replace(/_/g, '-')}`}
+                  textAnchor="middle"
+                  y={nodeR + (node.tier === 'tier_3_dormant' ? 11 : 14)}
+                >
+                  {node.label.length > maxChars
+                    ? `${node.label.slice(0, maxChars - 1)}…`
+                    : node.label}
+                </text>
+                {showSubLabel && (
+                  <text className="netmap__node-sub" textAnchor="middle" y={nodeR + 26}>
+                    {node.contactCount} {node.contactCount === 1 ? 'contact' : 'contacts'}
+                    {node.isColdHub
+                      ? ' · cold'
+                      : node.activeCount < node.contactCount
+                        ? ` · ${node.activeCount} active`
+                        : ''}
+                  </text>
                 )}
               </g>
             );
