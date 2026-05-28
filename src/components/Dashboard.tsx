@@ -1,5 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import type { Contact, Interaction, RelationshipTier, ContactType } from '../types';
 import { computeTier, isDue, TIER_LABELS, TIER_DESCRIPTIONS } from '../types';
+import { Card, Disclosure } from './ui';
+import { Clock, Flag, Users, ChevronRight } from './ui/icons';
 
 interface Props {
   contacts: Contact[];
@@ -7,21 +10,108 @@ interface Props {
   staffView: string;
 }
 
-function HealthGauge({ score, label }: { score: number; label: string }) {
-  const color = score >= 75 ? 'var(--client)' : score >= 50 ? 'var(--warm)' : 'var(--hot)';
-  const r = 48;
+/* ────────────────────────────────────────────────────────────
+   "This week" hero — three high-leverage actions
+   ──────────────────────────────────────────────────────────── */
+
+interface HeroCardProps {
+  value: number;
+  label: string;
+  cta: string;
+  tone: 'alert' | 'warn' | 'ok';
+  icon: React.ReactNode;
+  onClick?: () => void;
+}
+
+function HeroCard({ value, label, cta, tone, icon, onClick }: HeroCardProps) {
+  return (
+    <button
+      type="button"
+      className={`this-week-card this-week-card--${tone}`}
+      onClick={onClick}
+      disabled={!onClick || value === 0}
+    >
+      <span className="this-week-card__value">{value}</span>
+      <span className="this-week-card__label">{label}</span>
+      <span className="this-week-card__cta">
+        {value === 0 ? 'All caught up' : cta} {value > 0 && <ChevronRight />}
+      </span>
+      <span aria-hidden style={{
+        position: 'absolute', top: 14, right: 14,
+        color: 'var(--text-faint)', opacity: 0.4,
+        display: 'inline-flex',
+      }}>
+        {icon}
+      </span>
+    </button>
+  );
+}
+
+function ThisWeekHero({
+  due, recentTouches, unclassified,
+}: {
+  due: number;
+  recentTouches: number;
+  unclassified: number;
+}) {
+  const navigate = useNavigate();
+  return (
+    <section className="this-week-hero">
+      <div>
+        <div className="this-week-hero__title">This week</div>
+        <div className="this-week-hero__sub">
+          The highest-leverage actions on your network right now.
+        </div>
+      </div>
+      <div className="this-week-grid">
+        <HeroCard
+          value={due}
+          label={`Contact${due === 1 ? '' : 's'} due for touch`}
+          cta="Open follow-up queue"
+          tone="alert"
+          icon={<Clock size={20} />}
+          onClick={() => navigate('/follow-ups')}
+        />
+        <HeroCard
+          value={recentTouches}
+          label="Meetings logged in the last 7 days"
+          cta="Log another"
+          tone="ok"
+          icon={<Flag size={20} />}
+          onClick={() => navigate('/audit')}
+        />
+        <HeroCard
+          value={unclassified}
+          label="Contacts need classification"
+          cta="Classify in Contacts"
+          tone={unclassified > 5 ? 'warn' : 'ok'}
+          icon={<Users size={20} />}
+          onClick={() => navigate('/contacts')}
+        />
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Composite health gauge — one big ring + 3 sub-bars
+   ──────────────────────────────────────────────────────────── */
+
+function PrimaryGauge({ score, label }: { score: number; label: string }) {
+  const color = score >= 75 ? 'var(--accent)' : score >= 50 ? 'var(--warm)' : 'var(--hot)';
+  const r = 52;
   const circumference = 2 * Math.PI * r;
-  const offset = circumference - (score / 100) * circumference;
+  const offset = circumference - (Math.max(0, Math.min(100, score)) / 100) * circumference;
   return (
     <div className="health-gauge">
       <div className="gauge-ring">
         <svg viewBox="0 0 120 120" className="gauge-svg">
-          <circle cx="60" cy="60" r={r} fill="none" stroke="var(--surface-alt)" strokeWidth="10" />
+          <circle cx="60" cy="60" r={r} fill="none" stroke="var(--surface-alt)" strokeWidth="9" />
           <circle
             cx="60" cy="60" r={r}
             fill="none"
             stroke={color}
-            strokeWidth="10"
+            strokeWidth="9"
             strokeDasharray={`${circumference}`}
             strokeDashoffset={offset}
             strokeLinecap="round"
@@ -35,6 +125,26 @@ function HealthGauge({ score, label }: { score: number; label: string }) {
     </div>
   );
 }
+
+function HealthSub({ label, value, hint, color }: { label: string; value: number; hint: string; color: string }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="health-sub">
+      <div className="health-sub__row">
+        <span className="health-sub__label">{label}</span>
+        <span className="health-sub__value">{value}</span>
+      </div>
+      <div className="health-sub__track">
+        <div className="health-sub__fill" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="health-sub__hint">{hint}</span>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Donut + balance meter (unchanged from previous migration)
+   ──────────────────────────────────────────────────────────── */
 
 function DonutChart({ data }: { data: { label: string; count: number; color: string }[] }) {
   const total = data.reduce((s, d) => s + d.count, 0);
@@ -81,7 +191,6 @@ function DonutChart({ data }: { data: { label: string; count: number; color: str
     <div className="donut-chart-wrap">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="donut-svg">
         {slices.map((s, i) => {
-          // For a single slice spanning 360, render a full circle
           if (s.endAngle - s.startAngle >= 359.99) {
             return (
               <g key={i}>
@@ -95,11 +204,10 @@ function DonutChart({ data }: { data: { label: string; count: number; color: str
               key={i}
               d={describeArc(s.startAngle, s.endAngle, outerR, innerR)}
               fill={s.color}
-              opacity={0.85}
+              opacity={0.92}
             />
           );
         })}
-        {/* center label */}
         <text x={cx} y={cy - 6} textAnchor="middle" fill="var(--text)" fontSize="22" fontWeight="700">
           {total}
         </text>
@@ -145,7 +253,7 @@ function BalanceMeter({ clients, capital }: { clients: number; capital: number }
     <div className="balance-meter">
       <div className="balance-labels">
         <span style={{ color: 'var(--client)' }}>Clients ({clients})</span>
-        <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>
+        <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
           {balanced ? 'Balanced' : clientPct > 50 ? 'Client-heavy' : 'Capital-heavy'}
         </span>
         <span style={{ color: 'var(--capital)' }}>Capital ({capital})</span>
@@ -158,6 +266,10 @@ function BalanceMeter({ clients, capital }: { clients: number; capital: number }
     </div>
   );
 }
+
+/* ────────────────────────────────────────────────────────────
+   Dashboard
+   ──────────────────────────────────────────────────────────── */
 
 export default function Dashboard({ contacts, interactions, staffView }: Props) {
   const clients = contacts.filter(c => c.type === 'client');
@@ -174,10 +286,8 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
   };
   contacts.forEach(c => { tiers[computeTier(c)].push(c); });
 
-  const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
   const sevenDaysAgo = Date.now() - 7 * 86_400_000;
   const recentInteractions = interactions.filter(i => new Date(i.date).getTime() > sevenDaysAgo);
-  const newThisMonth = contacts.filter(c => c.dateAdded && new Date(c.dateAdded).getTime() > thirtyDaysAgo);
 
   const meetingInteractions = interactions.filter(i => i.type === 'meeting' || i.type === 'event');
   const shMeetings = meetingInteractions.filter(i => i.category === 'client_side' || i.category === 'capital_side');
@@ -213,43 +323,60 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
       <div className="dash-header">
         <div>
           <h2 className="dash-title">{viewLabel} Dashboard</h2>
+          <p className="dash-subtitle">
+            Live view of relationship coverage, network balance, and meeting discipline,
+            sourced from the shared NetworkTracker workbook.
+          </p>
         </div>
       </div>
 
-      {/* Quick Stats Cards */}
-      <div className="dash-quick-stats">
-        <div className="quick-stat">
-          <span className="quick-stat-value">{contacts.length}</span>
-          <span className="quick-stat-label">Contacts</span>
-        </div>
-        <div className="quick-stat">
-          <span className="quick-stat-value alert">{due.length}</span>
-          <span className="quick-stat-label">Due for touch</span>
-        </div>
-        <div className="quick-stat">
-          <span className="quick-stat-value">{recentInteractions.length}</span>
-          <span className="quick-stat-label">Touches this week</span>
-        </div>
-        <div className="quick-stat">
-          <span className="quick-stat-value">{newThisMonth.length}</span>
-          <span className="quick-stat-label">Added this month</span>
-        </div>
-      </div>
+      {/* "This week" hero */}
+      <ThisWeekHero
+        due={due.length}
+        recentTouches={recentInteractions.length}
+        unclassified={unclassified.length}
+      />
 
-      {/* Health + Network Balance Row */}
+      {/* Health + Network Composition Row */}
       <div className="dash-grid-2">
-        <div className="dash-card">
-          <h3 className="dash-card-title">Network Health</h3>
-          <div className="health-row">
-            <HealthGauge score={healthScore} label="Overall" />
-            <HealthGauge score={balanceScore} label="Balance" />
-            <HealthGauge score={tierScore} label="Tier depth" />
-            <HealthGauge score={shPct} label="Meeting focus" />
+        <Card>
+          <h3 className="dash-card-title">Network health</h3>
+          <p className="dash-card-desc">
+            Composite read on balance between client and capital sides, depth of strategic ties,
+            and how much of recent meeting time advances the structural hole.
+          </p>
+          <div className="health-composite">
+            <div className="health-composite__primary">
+              <PrimaryGauge score={healthScore} label="Overall" />
+            </div>
+            <div className="health-composite__breakdown">
+              <HealthSub
+                label="Balance"
+                value={balanceScore}
+                hint="Closer to 50/50 between clients and capital providers is stronger."
+                color="var(--client)"
+              />
+              <HealthSub
+                label="Tier depth"
+                value={tierScore}
+                hint="Share of contacts in Tier 2 (Strategic) — the most valuable per network science."
+                color="var(--capital)"
+              />
+              <HealthSub
+                label="Meeting focus"
+                value={shPct}
+                hint="Share of recent meetings spent on the client or capital side, not internal admin."
+                color="var(--accent)"
+              />
+            </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="dash-card">
-          <h3 className="dash-card-title">Network Composition</h3>
+        <Card>
+          <h3 className="dash-card-title">Network composition</h3>
+          <p className="dash-card-desc">
+            How your contact base splits across the two sides of the structural hole and supporting roles.
+          </p>
           <DonutChart
             data={typeBreakdown.map(t => ({ label: t.label, count: t.count, color: t.color }))}
           />
@@ -260,12 +387,16 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
               Client, Capital, or Partner for an accurate structural hole picture.
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Tier Distribution */}
-      <div className="dash-card">
-        <h3 className="dash-card-title">Relationship Tiers</h3>
+      <Card>
+        <h3 className="dash-card-title">Relationship tiers</h3>
+        <p className="dash-card-desc">
+          Tiers are computed from days since last touch. Strategic (Tier 2) ties — touched roughly twice
+          per year — are the most valuable per network science: deep enough to call on, broad enough to bridge.
+        </p>
         <div className="tier-bars">
           <TierBar
             tier="tier_1_inner_circle"
@@ -294,22 +425,24 @@ export default function Dashboard({ contacts, interactions, staffView }: Props) 
           </div>
         )}
         {tiers.tier_2_strategic.length > 0 && (
-          <div className="tier-2-spotlight">
-            <h4>Tier 2 Spotlight</h4>
-            <div className="tier-2-chips">
-              {tiers.tier_2_strategic.slice(0, 12).map(c => (
-                <span key={c.id} className={`chip chip-${c.type}`}>
-                  {c.name}
-                  <span className="chip-sub">{c.company}</span>
-                </span>
-              ))}
-              {tiers.tier_2_strategic.length > 12 && (
-                <span className="chip chip-more">+{tiers.tier_2_strategic.length - 12} more</span>
-              )}
-            </div>
+          <div className="tier-2-spotlight-disclosure">
+            <Disclosure
+              label="Strategic relationships"
+              hint={`The ${tiers.tier_2_strategic.length} Tier 2 contact${tiers.tier_2_strategic.length === 1 ? '' : 's'} most worth defending.`}
+              badge={tiers.tier_2_strategic.length}
+            >
+              <div className="tier-2-chips">
+                {tiers.tier_2_strategic.map(c => (
+                  <span key={c.id} className={`chip chip-${c.type}`}>
+                    {c.name}
+                    <span className="chip-sub">{c.company}</span>
+                  </span>
+                ))}
+              </div>
+            </Disclosure>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

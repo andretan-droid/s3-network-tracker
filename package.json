@@ -13,8 +13,10 @@
     "@azure/msal-browser": "^5.11.0",
     "@azure/msal-react": "^5.4.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.1",
     "uuid": "^14.0.0"
   },
   "devDependencies": {

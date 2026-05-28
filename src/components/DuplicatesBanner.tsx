@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Contact } from '../types';
 import { findDuplicates } from '../types';
+import { Button, useDialog } from './ui';
 
 interface Props {
   contacts: Contact[];
@@ -10,25 +11,39 @@ interface Props {
 
 export default function DuplicatesBanner({ contacts, onEdit, onMergeAll }: Props) {
   const [merging, setMerging] = useState(false);
-  const [progress, setProgress] = useState('');
+  const dialog = useDialog();
   const dupes = findDuplicates(contacts);
   if (dupes.size === 0) return null;
 
   const totalDupes = [...dupes.values()].reduce((sum, group) => sum + group.length, 0);
 
   const handleMerge = async () => {
-    if (!confirm(
-      `This will merge ${dupes.size} duplicate groups (${totalDupes} contacts) into unique entries, ` +
-      `combining their owners. This writes directly to the Excel file. Continue?`
-    )) return;
+    const ok = await dialog.confirm({
+      title: `Merge ${dupes.size} duplicate group${dupes.size > 1 ? 's' : ''}?`,
+      body: (
+        <>
+          This will merge <strong>{totalDupes}</strong> contacts into <strong>{dupes.size}</strong>{' '}
+          unique entries, combining their owners. The change writes directly to the shared
+          NetworkTracker Excel workbook and cannot be undone.
+        </>
+      ),
+      confirmLabel: 'Merge duplicates',
+      cancelLabel: 'Cancel',
+      tone: 'warn',
+    });
+    if (!ok) return;
     setMerging(true);
     try {
       await onMergeAll();
-    } catch (e: any) {
-      alert('Merge failed: ' + (e.message || e));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await dialog.alert({
+        title: 'Merge failed',
+        body: `The Excel workbook did not accept the bulk write: ${msg}`,
+        tone: 'danger',
+      });
     } finally {
       setMerging(false);
-      setProgress('');
     }
   };
 
@@ -42,14 +57,13 @@ export default function DuplicatesBanner({ contacts, onEdit, onMergeAll }: Props
             Merge them to combine owners into one record (e.g. "Ravi, Philip").
           </span>
         </div>
-        <button
-          className="btn-primary"
-          style={{ flexShrink: 0, background: '#8a5a00' }}
+        <Button
+          variant="primary"
+          loading={merging}
           onClick={handleMerge}
-          disabled={merging}
         >
-          {merging ? progress || 'Merging...' : `Merge all ${dupes.size} duplicates`}
-        </button>
+          {merging ? 'Merging' : `Merge all ${dupes.size}`}
+        </Button>
       </div>
       <div className="dupes-list">
         {[...dupes.entries()].slice(0, 10).map(([key, group]) => (
@@ -65,7 +79,7 @@ export default function DuplicatesBanner({ contacts, onEdit, onMergeAll }: Props
           </div>
         ))}
         {dupes.size > 10 && (
-          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
             +{dupes.size - 10} more duplicates
           </span>
         )}

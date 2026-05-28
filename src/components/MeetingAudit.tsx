@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Interaction, MeetingCategory, InteractionType } from '../types';
 import { STAFF_ROSTER } from '../types';
+import { Button, useDialog } from './ui';
+import { Plus, X } from './ui/icons';
 
 interface Props {
   interactions: Interaction[];
@@ -11,8 +13,8 @@ interface Props {
 const categoryColors: Record<MeetingCategory, string> = {
   client_side: 'var(--client)',
   capital_side: 'var(--capital)',
-  neither: 'var(--text-faint)',
-  internal: 'var(--partner)',
+  neither: 'var(--text-muted)',
+  internal: 'var(--sage-forest)',
 };
 
 const categoryLabels: Record<MeetingCategory, string> = {
@@ -39,10 +41,15 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
   const [notes, setNotes] = useState('');
   const [loggedBy, setLoggedBy] = useState(currentUser);
   const [saving, setSaving] = useState(false);
+  const dialog = useDialog();
 
   const handleSubmit = async () => {
     if (!notes.trim()) {
-      alert('Please describe the meeting/interaction.');
+      await dialog.alert({
+        title: 'Meeting description required',
+        body: 'Please add a brief description so the meeting can be categorised in the audit log.',
+        tone: 'warn',
+      });
       return;
     }
     setSaving(true);
@@ -57,8 +64,13 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
       });
       setNotes('');
       setDate(new Date().toISOString().slice(0, 10));
-    } catch (e: any) {
-      alert('Error logging: ' + (e.message || e));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await dialog.alert({
+        title: 'Could not log meeting',
+        body: `The Excel workbook did not accept the write: ${msg}`,
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -66,7 +78,7 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
 
   return (
     <div className="weekly-form">
-      <h3 className="weekly-form-title">Log a Meeting</h3>
+      <h3 className="weekly-form-title">Log a meeting</h3>
       <div className="weekly-form-grid">
         <div className="form-group">
           <label>Date</label>
@@ -103,15 +115,15 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder="e.g. Met with CIMB Capital Markets team to discuss potential co-lead on upcoming IPO mandate..."
+            placeholder="Who you met, what you discussed, and the next step..."
             rows={3}
           />
         </div>
       </div>
       <div className="form-actions">
-        <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Logging...' : 'Log meeting'}
-        </button>
+        <Button variant="primary" onClick={handleSubmit} loading={saving}>
+          {saving ? 'Logging' : 'Log meeting'}
+        </Button>
       </div>
     </div>
   );
@@ -152,14 +164,18 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
     <div className="audit-wrap">
       <div className="audit-header">
         <div>
-          <h2>Meeting Audit</h2>
+          <h2>Meeting audit</h2>
+          <p className="audit-desc">
+            Track which meetings advance the structural hole — the boundary between clients
+            and capital providers where Sage3 creates value — versus internal or non-strategic time.
+          </p>
         </div>
-        <button
-          className={`btn-primary ${showForm ? 'btn-active' : ''}`}
+        <Button
+          variant={showForm ? 'ghost' : 'primary'}
           onClick={() => setShowForm(!showForm)}
         >
-          {showForm ? 'Hide form' : '+ Log meeting'}
-        </button>
+          {showForm ? <><X /> Hide form</> : <><Plus /> Log meeting</>}
+        </Button>
       </div>
 
       {showForm && (
@@ -169,7 +185,7 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
       {meetings.length === 0 ? (
         <div className="empty">
           <p style={{ marginBottom: 8 }}>No interactions logged yet.</p>
-          <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
             Use "Mark touched" on contacts or the "Log meeting" button above to start tracking.
             Directors can log meetings from their weekly reports here.
           </p>
@@ -209,7 +225,7 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
           >
             <div className="assessment-score">
               <span className="assessment-pct">{structuralHolePct}%</span>
-              <span className="assessment-label">Structural Hole Focus</span>
+              <span className="assessment-label">Structural hole focus</span>
             </div>
             <div className="assessment-text">
               {structuralHolePct}% of meetings advance the structural hole (client-side + capital-side).
@@ -226,7 +242,7 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
           {/* Per-staff breakdown */}
           {byStaff.size > 1 && (
             <div className="audit-staff-section">
-              <h3 className="audit-section-title">By Staff Member</h3>
+              <h3 className="audit-section-title">By staff member</h3>
               <div className="audit-staff-grid">
                 {[...byStaff.entries()]
                   .sort((a, b) => b[1].total - a[1].total)
@@ -245,7 +261,7 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
 
           {/* Recent interactions list */}
           <h3 className="audit-section-title">
-            Recent Interactions ({sorted.length})
+            Recent interactions ({sorted.length})
           </h3>
           <div className="audit-list">
             {sorted.slice(0, 50).map(i => (

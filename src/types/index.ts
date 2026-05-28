@@ -1,4 +1,25 @@
-export type ContactType = 'client' | 'capital_provider' | 'partner' | 'educational' | 'unclassified';
+export type ContactType =
+  | 'client'
+  | 'capital_provider'
+  | 'partner'
+  | 'educational'
+  | 'regulatory'
+  | 'government'
+  | 'institute'
+  | 'unclassified';
+
+/**
+ * Types that DO NOT participate in the structural hole proper.
+ * Used by the network map's "ecosystem zone" placement and by the
+ * Director Brief's balance bar (which only counts clients vs capital).
+ */
+export const ECOSYSTEM_TYPES: ContactType[] = [
+  'partner', 'educational', 'regulatory', 'government', 'institute',
+];
+
+export function isEcosystemType(t: ContactType): boolean {
+  return ECOSYSTEM_TYPES.includes(t);
+}
 export type HeatLevel = 'hot' | 'warm' | 'cold' | '';
 export type Frequency = 'biannual' | 'quarterly' | 'monthly' | 'asneeded' | '';
 export type InteractionType = 'meeting' | 'call' | 'email' | 'event';
@@ -59,11 +80,14 @@ export const FREQUENCY_LABELS: Record<Frequency, string> = {
 };
 
 export const TYPE_LABELS: Record<ContactType, string> = {
-  client: 'Client',
+  client:           'Client',
   capital_provider: 'Capital Provider',
-  partner: 'Partner / Referrer',
-  educational: 'Educational',
-  unclassified: 'Unclassified',
+  partner:          'Partner / Referrer',
+  educational:      'Educational',
+  regulatory:       'Regulatory Body',
+  government:       'Government',
+  institute:        'Institute',
+  unclassified:     'Unclassified',
 };
 
 export const TIER_LABELS: Record<RelationshipTier, string> = {

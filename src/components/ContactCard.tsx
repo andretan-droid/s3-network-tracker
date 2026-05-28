@@ -1,5 +1,7 @@
 import type { Contact } from '../types';
 import { FREQUENCY_LABELS, FREQUENCY_DAYS, TYPE_LABELS, computeTier, TIER_LABELS } from '../types';
+import { Badge } from './ui';
+import { Check, Pencil, Trash2, Mail, Phone } from './ui/icons';
 
 interface Props {
   contact: Contact;
@@ -25,12 +27,18 @@ function isDue(c: Contact): boolean {
 
 const heatColors: Record<string, string> = { hot: 'var(--hot)', warm: 'var(--warm)', cold: 'var(--cold)', '': 'var(--border)' };
 
-const badgeClasses: Record<string, string> = {
-  client: 'badge-client',
-  capital_provider: 'badge-capital',
-  partner: 'badge-partner',
-  educational: 'badge-educational',
-  unclassified: 'badge-unclassified',
+const badgeTone: Record<string, 'client' | 'capital' | 'partner' | 'educational' | 'neutral'> = {
+  client: 'client',
+  capital_provider: 'capital',
+  partner: 'partner',
+  educational: 'educational',
+  // Ecosystem types beyond partner/educational reuse the partner tone in lists —
+  // the visualisation differentiates them, but card-level density doesn't need
+  // five distinct chip colors.
+  regulatory: 'partner',
+  government: 'partner',
+  institute: 'educational',
+  unclassified: 'neutral',
 };
 
 const tierColors: Record<string, string> = {
@@ -62,16 +70,28 @@ export default function ContactCard({ contact: c, onMarkTouched, onEdit, onDelet
         )}
         <div className="card-actions">
           <button className="action-btn touch" onClick={() => onMarkTouched(c.id)}>
-            Mark touched
+            <Check /> Mark touched
           </button>
-          <button className="action-btn" onClick={() => onEdit(c.id)}>Edit</button>
-          <button className="action-btn danger" onClick={() => onDelete(c.id)}>Delete</button>
-          {c.email && <a href={`mailto:${c.email}`} className="action-btn">Email</a>}
-          {c.phoneMobile && <a href={`tel:${c.phoneMobile}`} className="action-btn">Call</a>}
+          <button className="action-btn" onClick={() => onEdit(c.id)}>
+            <Pencil /> Edit
+          </button>
+          <button className="action-btn danger" onClick={() => onDelete(c.id)}>
+            <Trash2 /> Delete
+          </button>
+          {c.email && (
+            <a href={`mailto:${c.email}`} className="action-btn">
+              <Mail /> Email
+            </a>
+          )}
+          {c.phoneMobile && (
+            <a href={`tel:${c.phoneMobile}`} className="action-btn">
+              <Phone /> Call
+            </a>
+          )}
         </div>
       </div>
       <div className="contact-right">
-        <span className={`badge ${badgeClasses[c.type]}`}>{TYPE_LABELS[c.type]}</span>
+        <Badge tone={badgeTone[c.type]}>{TYPE_LABELS[c.type]}</Badge>
         <div className="heat-row">
           <div className="heat-dot" style={{ background: heatColors[c.heat] }} />
           <span className="freq-tag">{FREQUENCY_LABELS[c.frequency]}</span>

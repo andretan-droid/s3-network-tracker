@@ -1,12 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { Routes, Route, NavLink, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { loginRequest } from './services/authConfig';
 import { initGraphClient } from './services/graphClient';
-import { addContact, updateContact, removeContact, markContactTouched, addInteraction, mergeAllDuplicates } from './services/excelService';
+import {
+  addContact, updateContact, removeContact, markContactTouched,
+  addInteraction, mergeAllDuplicates,
+} from './services/excelService';
 import { useContacts } from './hooks/useContacts';
 import { useInteractions } from './hooks/useInteractions';
 import { ToastProvider, useToast } from './components/Toast';
+import { DialogProvider, SyncStateProvider, useDialog, useSyncState } from './components/ui';
 import StaffFilter from './components/StaffFilter';
+import SyncStatus from './components/SyncStatus';
 import Dashboard from './components/Dashboard';
 import ContactsList from './components/ContactsList';
 import AddEditContact from './components/AddEditContact';
@@ -14,27 +21,95 @@ import FollowUpQueue from './components/FollowUpQueue';
 import StructuralHoleMap from './components/StructuralHoleMap';
 import MeetingAudit from './components/MeetingAudit';
 import type { Contact, Interaction } from './types';
+import {
+  LayoutDashboard, Users, UserPlus, Clock, Network, Flag,
+  Menu, X, RefreshCw, LogOut, GitBranch, Target, GraduationCap, Sparkles,
+} from './components/ui/icons';
 
-type Tab = 'dashboard' | 'contacts' | 'add' | 'followup' | 'holemap' | 'audit';
+/* ────────────────────────────────────────────────────────────
+   Route map — single source of truth for paths + nav labels
+   ──────────────────────────────────────────────────────────── */
 
-const NAV_ITEMS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: '▦' },
-  { key: 'contacts', label: 'Contacts', icon: '☺' },
-  { key: 'add', label: 'Add Contact', icon: '+' },
-  { key: 'followup', label: 'Follow-ups', icon: '⏰' },
-  { key: 'holemap', label: 'Structural Hole', icon: '◉' },
-  { key: 'audit', label: 'Meeting Audit', icon: '⚑' },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: ReactNode;
+  /** End=true so /contacts doesn't stay active when on /contacts/new */
+  end?: boolean;
+  /** When the route is active, also match these paths (for sidebar highlight) */
+  alsoActiveOn?: string[];
+}
+
+const NAV: NavItem[] = [
+  { to: '/',                 label: 'Dashboard',       icon: <LayoutDashboard />, end: true },
+  { to: '/contacts',         label: 'Contacts',        icon: <Users />,           end: true },
+  { to: '/contacts/new',     label: 'Add Contact',     icon: <UserPlus />,        alsoActiveOn: ['/contacts/'] },
+  { to: '/follow-ups',       label: 'Follow-ups',      icon: <Clock /> },
+  { to: '/structural-hole',  label: 'Structural Hole', icon: <Network /> },
+  { to: '/audit',            label: 'Meeting Audit',   icon: <Flag /> },
 ];
+
+/* ────────────────────────────────────────────────────────────
+   AddEditContactRoute — wires :id param into the form component
+   ──────────────────────────────────────────────────────────── */
+
+interface AddEditContactRouteProps {
+  mode: 'new' | 'edit';
+  contacts: Contact[];
+  currentUser: string;
+  onSave: (data: Omit<Contact, 'id' | 'dateAdded'>) => Promise<void>;
+  onUpdate: (contact: Contact) => Promise<void>;
+}
+
+function AddEditContactRoute({ mode, contacts, currentUser, onSave, onUpdate }: AddEditContactRouteProps) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  if (mode === 'edit') {
+    // While initial load is still in flight contacts will be []. Hold for that case
+    // by not redirecting until we know we have data.
+    const editing = id ? contacts.find(c => c.id === id) : null;
+    if (id && contacts.length > 0 && !editing) {
+      // Bad deep link or row deleted by another user
+      return <Navigate to="/contacts" replace />;
+    }
+    return (
+      <AddEditContact
+        editingContact={editing ?? null}
+        currentUser={currentUser}
+        onSave={onSave}
+        onUpdate={onUpdate}
+        onClear={() => navigate('/contacts')}
+      />
+    );
+  }
+
+  return (
+    <AddEditContact
+      editingContact={null}
+      currentUser={currentUser}
+      onSave={onSave}
+      onUpdate={onUpdate}
+      onClear={() => { /* stay on /contacts/new, form clears internally */ }}
+    />
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   AppContent — main shell, sidebar + routed main
+   ──────────────────────────────────────────────────────────── */
 
 function AppContent() {
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [graphReady, setGraphReady] = useState(false);
-  const [tab, setTab] = useState<Tab>('dashboard');
   const [staffView, setStaffView] = useState('all');
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toast = useToast();
+  const dialog = useDialog();
+  const sync = useSyncState();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const userEmail = accounts[0]?.username || '';
   const userName = accounts[0]?.name || userEmail.split('@')[0] || 'guest';
@@ -49,13 +124,13 @@ function AppContent() {
   const { contacts, loading, error, lastSync, refresh } = useContacts(graphReady ? 60_000 : 0);
   const { interactions, refresh: refreshInteractions } = useInteractions(graphReady ? 60_000 : 0);
 
+  // Close mobile sidebar whenever a route change happens
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
+
   const filteredContacts =
     staffView === 'all'
       ? contacts
-      : contacts.filter(c => {
-          const owners = c.owners.toLowerCase();
-          return owners.includes(staffView.toLowerCase());
-        });
+      : contacts.filter(c => c.owners.toLowerCase().includes(staffView.toLowerCase()));
 
   const filteredInteractions =
     staffView === 'all'
@@ -74,10 +149,12 @@ function AppContent() {
     instance.logoutRedirect();
   };
 
+  /* ── Mutation handlers — every write wrapped in sync.track() ── */
+
   const handleMarkTouched = useCallback(
     async (id: string) => {
       try {
-        await markContactTouched(id, userName);
+        await sync.track(markContactTouched(id, userName));
         toast('Interaction logged. Contact marked as touched.');
         refresh();
         refreshInteractions();
@@ -86,27 +163,37 @@ function AppContent() {
         toast('Error: ' + msg);
       }
     },
-    [userName, toast, refresh, refreshInteractions]
+    [userName, sync, toast, refresh, refreshInteractions]
   );
 
   const handleEdit = useCallback(
     (id: string) => {
-      const c = contacts.find(x => x.id === id);
-      if (c) {
-        setEditingContact(c);
-        setTab('add');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      navigate(`/contacts/${id}/edit`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [contacts]
+    [navigate]
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
       const c = contacts.find(x => x.id === id);
-      if (!c || !confirm(`Delete ${c.name}?`)) return;
+      if (!c) return;
+      const ok = await dialog.confirm({
+        title: `Delete ${c.name}?`,
+        body: (
+          <>
+            This will permanently remove <strong>{c.name}</strong>
+            {c.company ? <> ({c.company})</> : null} from the shared
+            NetworkTracker workbook. This action cannot be undone.
+          </>
+        ),
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      });
+      if (!ok) return;
       try {
-        await removeContact(id);
+        await sync.track(removeContact(id));
         toast('Contact deleted.');
         refresh();
       } catch (e: unknown) {
@@ -114,48 +201,86 @@ function AppContent() {
         toast('Error: ' + msg);
       }
     },
-    [contacts, toast, refresh]
+    [contacts, dialog, sync, toast, refresh]
   );
 
   const handleSave = useCallback(
     async (data: Omit<Contact, 'id' | 'dateAdded'>) => {
-      await addContact(data);
-      toast('Contact saved!');
+      await sync.track(addContact(data));
+      toast('Contact saved.');
       refresh();
     },
-    [toast, refresh]
+    [sync, toast, refresh]
   );
 
   const handleUpdate = useCallback(
     async (contact: Contact) => {
-      await updateContact(contact);
+      await sync.track(updateContact(contact));
       toast('Contact updated.');
       refresh();
     },
-    [toast, refresh]
+    [sync, toast, refresh]
   );
 
   const handleLogMeeting = useCallback(
     async (data: Omit<Interaction, 'id'>) => {
-      await addInteraction(data);
+      await sync.track(addInteraction(data));
       toast('Meeting logged successfully.');
       refreshInteractions();
     },
-    [toast, refreshInteractions]
+    [sync, toast, refreshInteractions]
   );
 
   const handleMergeAll = useCallback(
     async () => {
-      const result = await mergeAllDuplicates((msg) => console.log('[Merge]', msg));
+      const result = await sync.track(
+        mergeAllDuplicates((msg) => console.log('[Merge]', msg))
+      );
       toast(`Merged ${result.merged} duplicate groups, removed ${result.removed} extra entries.`);
       refresh();
     },
-    [toast, refresh]
+    [sync, toast, refresh]
   );
 
-  const handleClearForm = useCallback(() => {
-    setEditingContact(null);
-  }, []);
+  /**
+   * Bulk-update writer used by the Contacts tab's bulk-edit toolbar.
+   *
+   * Writes are SEQUENTIAL on purpose: the SharePoint workbook is a shared
+   * resource and `excelService.ts` maintains an in-memory `contactsRowMap`
+   * that each `updateContact` call mutates. Parallel writes would race the
+   * map and risk version conflicts on the Graph side.
+   *
+   * Each individual write is `sync.track()`ed so the top strip reflects
+   * exact in-flight count during the bulk operation.
+   */
+  const handleBulkUpdate = useCallback(
+    async (updates: Contact[], onProgress?: (done: number, total: number) => void) => {
+      let done = 0;
+      const failures: { name: string; reason: string }[] = [];
+      for (const c of updates) {
+        try {
+          await sync.track(updateContact(c));
+        } catch (e: unknown) {
+          failures.push({
+            name: c.name,
+            reason: e instanceof Error ? e.message : String(e),
+          });
+        }
+        done += 1;
+        onProgress?.(done, updates.length);
+      }
+      refresh();
+      if (failures.length === 0) {
+        toast(`Updated ${updates.length} contact${updates.length === 1 ? '' : 's'}.`);
+      } else {
+        toast(`Updated ${updates.length - failures.length} of ${updates.length}. ${failures.length} failed.`);
+        console.warn('[BulkUpdate] failures:', failures);
+      }
+    },
+    [sync, toast, refresh]
+  );
+
+  /* ── Auth gate ── */
 
   if (!isAuthenticated) {
     return (
@@ -165,24 +290,24 @@ function AppContent() {
             <div className="login-left-logo">S3</div>
             <h1>Network Tracker</h1>
             <p className="login-left-tagline">
-              Strategic Relationship Intelligence for Sage3 Capital.
+              Strategic relationship intelligence for Sage3 Capital.
               Bridge the structural hole between clients and capital providers.
             </p>
             <div className="login-left-features">
               <div className="login-left-feature">
-                <div className="login-left-feature-icon">{'◉'}</div>
-                <span>Structural Hole Map: visualize your brokerage position</span>
+                <div className="login-left-feature-icon"><Network /></div>
+                <span>Structural Hole Map: visualise your brokerage position</span>
               </div>
               <div className="login-left-feature">
-                <div className="login-left-feature-icon">{'⬡'}</div>
+                <div className="login-left-feature-icon"><GitBranch /></div>
                 <span>Auto-tiered relationships: Inner Circle, Strategic, Dormant</span>
               </div>
               <div className="login-left-feature">
-                <div className="login-left-feature-icon">{'⚑'}</div>
+                <div className="login-left-feature-icon"><Flag /></div>
                 <span>Meeting audit: measure if meetings advance the hole</span>
               </div>
               <div className="login-left-feature">
-                <div className="login-left-feature-icon">{'☺'}</div>
+                <div className="login-left-feature-icon"><Users /></div>
                 <span>Firm-wide view across directors and staff</span>
               </div>
             </div>
@@ -198,7 +323,7 @@ function AppContent() {
             </div>
 
             <div className="login-hero">
-              <h2>Strategic Relationship Intelligence</h2>
+              <h2>Strategic relationship intelligence</h2>
               <p>
                 Your firm sits in a <strong>structural hole</strong>, bridging clients who
                 need capital and advisory with banks and investors who need deal flow. This
@@ -209,28 +334,36 @@ function AppContent() {
 
             <div className="login-features">
               <div className="login-feature">
-                <div className="login-feature-icon" style={{ background: 'var(--client-bg)', color: 'var(--client)' }}>&#9679;</div>
+                <div className="login-feature-icon" style={{ background: 'var(--client-bg)', color: 'var(--client)' }}>
+                  <Target />
+                </div>
                 <div>
                   <strong>Structural Hole Map</strong>
-                  <span>Visualize your position between clients and capital providers</span>
+                  <span>Visualise your position between clients and capital providers</span>
                 </div>
               </div>
               <div className="login-feature">
-                <div className="login-feature-icon" style={{ background: 'var(--capital-bg)', color: 'var(--capital)' }}>&#9679;</div>
+                <div className="login-feature-icon" style={{ background: 'var(--capital-bg)', color: 'var(--capital)' }}>
+                  <GitBranch />
+                </div>
                 <div>
                   <strong>Relationship Tiers</strong>
                   <span>Auto-track which contacts are Inner Circle, Strategic, or Dormant</span>
                 </div>
               </div>
               <div className="login-feature">
-                <div className="login-feature-icon" style={{ background: 'var(--partner-bg)', color: 'var(--partner)' }}>&#9679;</div>
+                <div className="login-feature-icon" style={{ background: 'var(--sage-panel)', color: 'var(--sage-forest)' }}>
+                  <Sparkles />
+                </div>
                 <div>
                   <strong>Meeting Audit</strong>
                   <span>Evaluate whether your meetings advance the structural hole</span>
                 </div>
               </div>
               <div className="login-feature">
-                <div className="login-feature-icon" style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}>&#9679;</div>
+                <div className="login-feature-icon" style={{ background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>
+                  <GraduationCap />
+                </div>
                 <div>
                   <strong>Firm-Wide View</strong>
                   <span>See all connections across directors and staff with owner tracking</span>
@@ -269,16 +402,10 @@ function AppContent() {
     return days >= (c.frequency === 'biannual' ? 180 : c.frequency === 'quarterly' ? 90 : c.frequency === 'monthly' ? 30 : 9999);
   }).length;
 
-  const getBadge = (key: Tab): number | undefined => {
-    if (key === 'contacts') return filteredContacts.length;
-    if (key === 'followup') return dueCount;
+  const getBadge = (to: string): number | undefined => {
+    if (to === '/contacts')   return filteredContacts.length;
+    if (to === '/follow-ups') return dueCount;
     return undefined;
-  };
-
-  const getNavLabel = (key: Tab): string => {
-    if (key === 'add' && editingContact) return 'Edit Contact';
-    const item = NAV_ITEMS.find(n => n.key === key);
-    return item?.label ?? '';
   };
 
   const userInitials = userName
@@ -296,7 +423,7 @@ function AppContent() {
         onClick={() => setSidebarOpen(o => !o)}
         aria-label="Toggle sidebar"
       >
-        {sidebarOpen ? '✕' : '☰'}
+        {sidebarOpen ? <X /> : <Menu />}
       </button>
 
       {/* Mobile overlay */}
@@ -308,7 +435,6 @@ function AppContent() {
       <div className="app-shell">
         {/* ─── Sidebar ─── */}
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-          {/* Brand */}
           <div className="sidebar-brand">
             <div className="sidebar-logo">S3</div>
             <div className="sidebar-brand-text">
@@ -317,105 +443,150 @@ function AppContent() {
             </div>
           </div>
 
-          {/* Staff filter */}
           <div className="sidebar-section-label">View</div>
           <div className="sidebar-staff-filter">
             <StaffFilter value={staffView} onChange={setStaffView} />
           </div>
 
-          {/* Navigation */}
           <div className="sidebar-section-label">Navigation</div>
           <nav className="sidebar-nav">
-            {NAV_ITEMS.map(n => {
-              const badge = getBadge(n.key);
+            {NAV.map(n => {
+              const badge = getBadge(n.to);
               return (
-                <button
-                  key={n.key}
-                  className={`sidebar-nav-item ${tab === n.key ? 'active' : ''}`}
-                  onClick={() => { setTab(n.key); setSidebarOpen(false); }}
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.end}
+                  className={({ isActive }) => {
+                    // Highlight "Add Contact" when on /contacts/:id/edit too
+                    const altMatch =
+                      n.alsoActiveOn?.some(p => location.pathname.startsWith(p)) &&
+                      !NAV.some(other => other !== n && other.end && other.to === location.pathname);
+                    return `sidebar-nav-item ${isActive || altMatch ? 'active' : ''}`;
+                  }}
                 >
                   <span className="sidebar-nav-icon">{n.icon}</span>
-                  <span className="sidebar-nav-label">{getNavLabel(n.key)}</span>
+                  <span className="sidebar-nav-label">{n.label}</span>
                   {badge !== undefined && badge > 0 && (
                     <span className="sidebar-nav-badge">{badge}</span>
                   )}
-                </button>
+                </NavLink>
               );
             })}
           </nav>
 
-          {/* Sync row */}
           <div className="sidebar-sync">
             <span className="sidebar-sync-status" title={error || ''}>
-              {error ? `Err: ${error.substring(0, 40)}` : syncLabel}
+              {error ? 'Sync error' : syncLabel}
             </span>
             <button
               className="sidebar-sync-btn"
               onClick={() => { refresh(); refreshInteractions(); }}
+              title="Refresh from Excel"
             >
-              Sync
+              <RefreshCw size={11} style={{ verticalAlign: 'middle' }} />
             </button>
           </div>
 
-          {/* User footer */}
           <div className="sidebar-footer">
             <div className="sidebar-user-avatar">{userInitials}</div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{userName}</div>
               <div className="sidebar-user-role">Sage3 Capital</div>
             </div>
-            <button className="sidebar-signout" onClick={handleLogout}>
-              Sign out
+            <button
+              className="sidebar-signout"
+              onClick={handleLogout}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={12} />
             </button>
           </div>
         </aside>
 
         {/* ─── Main Content ─── */}
         <div className="main">
+          <SyncStatus
+            lastSync={lastSync}
+            error={error}
+            onRefresh={() => { refresh(); refreshInteractions(); }}
+          />
           {loading && contacts.length === 0 ? (
             <div className="loading">
               <span className="spinner" />
               Loading contacts from Excel workbook...
             </div>
           ) : (
-            <>
-              {tab === 'dashboard' && (
-                <Dashboard
-                  contacts={filteredContacts}
-                  interactions={filteredInteractions}
-                  staffView={staffView}
-                />
-              )}
-              {tab === 'contacts' && (
-                <ContactsList
-                  contacts={filteredContacts}
-                  onMarkTouched={handleMarkTouched}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onMergeAll={handleMergeAll}
-                />
-              )}
-              {tab === 'add' && (
-                <AddEditContact
-                  editingContact={editingContact}
-                  currentUser={userName}
-                  onSave={handleSave}
-                  onUpdate={handleUpdate}
-                  onClear={handleClearForm}
-                />
-              )}
-              {tab === 'followup' && (
-                <FollowUpQueue contacts={filteredContacts} onMarkTouched={handleMarkTouched} />
-              )}
-              {tab === 'holemap' && <StructuralHoleMap contacts={filteredContacts} />}
-              {tab === 'audit' && (
-                <MeetingAudit
-                  interactions={filteredInteractions}
-                  onLogMeeting={handleLogMeeting}
-                  currentUser={userName}
-                />
-              )}
-            </>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Dashboard
+                    contacts={filteredContacts}
+                    interactions={filteredInteractions}
+                    staffView={staffView}
+                  />
+                }
+              />
+              <Route
+                path="/contacts"
+                element={
+                  <ContactsList
+                    contacts={filteredContacts}
+                    onMarkTouched={handleMarkTouched}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onMergeAll={handleMergeAll}
+                    onBulkUpdate={handleBulkUpdate}
+                  />
+                }
+              />
+              <Route
+                path="/contacts/new"
+                element={
+                  <AddEditContactRoute
+                    mode="new"
+                    contacts={contacts}
+                    currentUser={userName}
+                    onSave={handleSave}
+                    onUpdate={handleUpdate}
+                  />
+                }
+              />
+              <Route
+                path="/contacts/:id/edit"
+                element={
+                  <AddEditContactRoute
+                    mode="edit"
+                    contacts={contacts}
+                    currentUser={userName}
+                    onSave={handleSave}
+                    onUpdate={handleUpdate}
+                  />
+                }
+              />
+              <Route
+                path="/follow-ups"
+                element={<FollowUpQueue contacts={filteredContacts} onMarkTouched={handleMarkTouched} />}
+              />
+              <Route
+                path="/structural-hole"
+                element={<StructuralHoleMap contacts={filteredContacts} />}
+              />
+              <Route
+                path="/audit"
+                element={
+                  <MeetingAudit
+                    interactions={filteredInteractions}
+                    onLogMeeting={handleLogMeeting}
+                    currentUser={userName}
+                  />
+                }
+              />
+              {/* Catch-all: anything unknown drops you back at the dashboard */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           )}
         </div>
       </div>
@@ -426,7 +597,11 @@ function AppContent() {
 export default function App() {
   return (
     <ToastProvider>
-      <AppContent />
+      <DialogProvider>
+        <SyncStateProvider>
+          <AppContent />
+        </SyncStateProvider>
+      </DialogProvider>
     </ToastProvider>
   );
 }

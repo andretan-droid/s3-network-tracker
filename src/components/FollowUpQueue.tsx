@@ -1,5 +1,6 @@
 import type { Contact } from '../types';
 import { FREQUENCY_DAYS } from '../types';
+import { Check, Mail } from './ui/icons';
 
 interface Props {
   contacts: Contact[];
@@ -21,7 +22,7 @@ export default function FollowUpQueue({ contacts, onMarkTouched }: Props) {
   const due = contacts.filter(isDue);
 
   if (!due.length) {
-    return <div className="empty">No follow-ups due. You're all caught up!</div>;
+    return <div className="empty">No follow-ups due. You're all caught up.</div>;
   }
 
   // Group by company, alphabetically
@@ -59,10 +60,12 @@ export default function FollowUpQueue({ contacts, onMarkTouched }: Props) {
                     {days === null ? 'Never contacted' : `${days}d since last touch`}
                   </span>
                   <button className="touch-btn" onClick={() => onMarkTouched(c.id)}>
+                    <Check size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                     Mark touched
                   </button>
                   {c.email && (
-                    <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: 'var(--capital)' }}>
+                    <a href={`mailto:${c.email}`} className="followup-email">
+                      <Mail size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                       Send email
                     </a>
                   )}

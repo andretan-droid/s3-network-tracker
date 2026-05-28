@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Contact, ContactType, HeatLevel, Frequency } from '../types';
 import { STAFF_ROSTER } from '../types';
+import { Card, CardHeader, CardFooter, Button, Disclosure, useDialog } from './ui';
+import { Plus, X } from './ui/icons';
 
 interface Props {
   editingContact: Contact | null;
@@ -31,7 +33,27 @@ function parseOwners(str: string): string[] {
   return str.split(',').map(s => s.trim()).filter(Boolean);
 }
 
-function OwnerMultiSelect({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+/* ────────────────────────────────────────────────────────────
+   Smart owner block
+   - Default: current user pre-selected, shown as a single chip
+   - "Add co-owner" expands the full STAFF_ROSTER tri-group picker
+   - When editing, auto-expand if the contact has multiple owners
+     or a single owner that is not the current user
+   ──────────────────────────────────────────────────────────── */
+
+function OwnerBlock({
+  value,
+  currentUser,
+  onChange,
+  forceOpen,
+}: {
+  value: string;
+  currentUser: string;
+  onChange: (val: string) => void;
+  forceOpen: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isOpen = expanded || forceOpen;
   const selected = parseOwners(value);
 
   const toggle = (name: string) => {
@@ -44,6 +66,28 @@ function OwnerMultiSelect({ value, onChange }: { value: string; onChange: (val: 
   const eds = STAFF_ROSTER.filter(s => s.level === 'executive_director');
   const ads = STAFF_ROSTER.filter(s => s.level === 'associate_director');
   const staff = STAFF_ROSTER.filter(s => s.level === 'staff');
+
+  // Collapsed state: chip summary + "Add co-owner"
+  if (!isOpen) {
+    return (
+      <div className="owner-summary-row">
+        {selected.length === 0 ? (
+          <span className="owner-summary-chip">No owner — defaults to {currentUser}</span>
+        ) : (
+          selected.map(name => (
+            <span key={name} className="owner-summary-chip">{name}</span>
+          ))
+        )}
+        <button
+          type="button"
+          className="add-coowner-btn"
+          onClick={() => setExpanded(true)}
+        >
+          <Plus /> Add co-owner
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="owner-select">
@@ -86,18 +130,35 @@ function OwnerMultiSelect({ value, onChange }: { value: string; onChange: (val: 
           </label>
         ))}
       </div>
-      {selected.length > 0 && (
-        <div className="owner-summary">
-          Selected: <strong>{selected.join(', ')}</strong>
-        </div>
-      )}
+      <div className="owner-summary">
+        {selected.length > 0 ? (
+          <>Selected: <strong>{selected.join(', ')}</strong></>
+        ) : (
+          <em>No owner selected. At least one is required.</em>
+        )}
+        {!forceOpen && (
+          <button
+            type="button"
+            className="add-coowner-btn"
+            onClick={() => setExpanded(false)}
+            style={{ marginLeft: 8 }}
+          >
+            <X /> Collapse
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
+/* ────────────────────────────────────────────────────────────
+   AddEditContact
+   ──────────────────────────────────────────────────────────── */
+
 export default function AddEditContact({ editingContact, currentUser, onSave, onUpdate, onClear }: Props) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const dialog = useDialog();
 
   useEffect(() => {
     if (editingContact) {
@@ -129,11 +190,19 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.company.trim()) {
-      alert('Name and company are required.');
+      await dialog.alert({
+        title: 'Missing required fields',
+        body: 'Both Name and Company are required to save this contact.',
+        tone: 'warn',
+      });
       return;
     }
     if (!form.owners.trim()) {
-      alert('Please select at least one owner.');
+      await dialog.alert({
+        title: 'Owner required',
+        body: 'Please select at least one owner so this contact is attributed.',
+        tone: 'warn',
+      });
       return;
     }
     setSaving(true);
@@ -143,9 +212,15 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
       } else {
         await onSave(form);
       }
+      // "Save & add another": reset the form so the next card can be typed in straight away.
       handleClear();
-    } catch (e: any) {
-      alert('Error saving: ' + (e.message || e));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await dialog.alert({
+        title: 'Could not save contact',
+        body: `The Excel workbook did not accept the write: ${msg}`,
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -155,94 +230,167 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
     setForm(prev => ({ ...prev, [key]: e.target.value }));
   };
 
+  // Auto-expand owner picker if editing a contact whose ownership isn't a simple
+  // "just me" case — directors will usually want to see the full picker then.
+  const selectedOwners = parseOwners(form.owners);
+  const ownerForceOpen =
+    !!editingContact &&
+    (selectedOwners.length > 1 ||
+      (selectedOwners.length === 1 && selectedOwners[0] !== currentUser));
+
+  // Has the user filled any optional detail field? Open the disclosure if so,
+  // so editors don't have to expand to see their own data.
+  const hasDetails = !!(
+    form.position || form.email || form.phoneMobile || form.phoneOffice ||
+    form.linkedin || form.eventMet
+  );
+  const hasClassification = !!(
+    (form.type && form.type !== 'unclassified') || form.heat || form.frequency
+  );
+
   return (
-    <div className="add-form">
-      <h2>{editingContact ? 'Edit contact' : 'Add a new contact'}</h2>
-      {editingContact && (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-          To merge a duplicate, add extra owners below and then delete the duplicate entry.
-        </p>
-      )}
-      <div className="form-grid">
-        <div className="form-group">
-          <label>Full name *</label>
-          <input value={form.name} onChange={set('name')} placeholder="Ahmad Rizal" />
+    <Card>
+      <CardHeader
+        title={editingContact ? 'Edit contact' : 'Add a new contact'}
+        subtitle={
+          editingContact
+            ? 'To merge a duplicate, add extra owners below and then delete the duplicate entry.'
+            : 'Start with the essentials. Details and classification can be filled in now or after the first conversation.'
+        }
+      />
+
+      {/* ─── Step 1: Essentials (always visible) ─── */}
+      <div className="form-section">
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Full name *</label>
+            <input value={form.name} onChange={set('name')} placeholder="Contact full name" autoFocus />
+          </div>
+          <div className="form-group">
+            <label>Company *</label>
+            <input value={form.company} onChange={set('company')} placeholder="Company name" />
+          </div>
+          <div className="form-group full">
+            <label>Owner(s) *</label>
+            <OwnerBlock
+              value={form.owners}
+              currentUser={currentUser}
+              onChange={val => setForm(prev => ({ ...prev, owners: val }))}
+              forceOpen={ownerForceOpen}
+            />
+          </div>
         </div>
-        <div className="form-group">
-          <label>Company *</label>
-          <input value={form.company} onChange={set('company')} placeholder="Maybank Investment" />
-        </div>
-        <div className="form-group">
-          <label>Role / title</label>
-          <input value={form.position} onChange={set('position')} placeholder="VP, Corporate Banking" />
-        </div>
-        <div className="form-group">
-          <label>Email</label>
-          <input type="email" value={form.email} onChange={set('email')} placeholder="ahmad@maybank.com" />
-        </div>
-        <div className="form-group">
-          <label>Phone (mobile)</label>
-          <input value={form.phoneMobile} onChange={set('phoneMobile')} placeholder="+60 12-xxx xxxx" />
-        </div>
-        <div className="form-group">
-          <label>Phone (office)</label>
-          <input value={form.phoneOffice} onChange={set('phoneOffice')} placeholder="+603 xxxx xxxx" />
-        </div>
-        <div className="form-group">
-          <label>LinkedIn</label>
-          <input value={form.linkedin} onChange={set('linkedin')} placeholder="linkedin.com/in/ahmad" />
-        </div>
-        <div className="form-group">
-          <label>Contact type *</label>
-          <select value={form.type} onChange={set('type')}>
-            <option value="client">Client</option>
-            <option value="capital_provider">Capital provider (bank / investor)</option>
-            <option value="partner">Partner / referrer</option>
-            <option value="educational">Educational (university, research, training)</option>
-            <option value="unclassified">Unclassified</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Lead heat</label>
-          <select value={form.heat} onChange={set('heat')}>
-            <option value="">Not set (to be filled later)</option>
-            <option value="hot">Hot: active interest</option>
-            <option value="warm">Warm: potential interest</option>
-            <option value="cold">Cold: just collecting</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Touch frequency</label>
-          <select value={form.frequency} onChange={set('frequency')}>
-            <option value="">Not set (to be filled later)</option>
-            <option value="biannual">2x per year (strategic, most valuable)</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="monthly">Monthly</option>
-            <option value="asneeded">As needed</option>
-          </select>
-        </div>
-        <div className="form-group full">
-          <label>Owner(s) *</label>
-          <OwnerMultiSelect
-            value={form.owners}
-            onChange={(val) => setForm(prev => ({ ...prev, owners: val }))}
-          />
-        </div>
-        <div className="form-group">
-          <label>Where you met</label>
-          <input value={form.eventMet} onChange={set('eventMet')} placeholder="e.g. MIFF 2025, Invest Malaysia dinner" />
-        </div>
+      </div>
+
+      {/* ─── Step 2: Contact details (disclosure) ─── */}
+      <div className="form-section">
+        <Disclosure
+          label="Contact details"
+          hint="Role, email, phones, LinkedIn, where you met"
+          defaultOpen={hasDetails}
+        >
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Role / title</label>
+              <input value={form.position} onChange={set('position')} placeholder="Role or title" />
+            </div>
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={form.email} onChange={set('email')} placeholder="name@company.com" />
+            </div>
+            <div className="form-group">
+              <label>Phone (mobile)</label>
+              <input value={form.phoneMobile} onChange={set('phoneMobile')} placeholder="+60 12-xxx xxxx" />
+            </div>
+            <div className="form-group">
+              <label>Phone (office)</label>
+              <input value={form.phoneOffice} onChange={set('phoneOffice')} placeholder="+603 xxxx xxxx" />
+            </div>
+            <div className="form-group">
+              <label>LinkedIn</label>
+              <input value={form.linkedin} onChange={set('linkedin')} placeholder="linkedin.com/in/profile" />
+            </div>
+            <div className="form-group">
+              <label>Where you met</label>
+              <input value={form.eventMet} onChange={set('eventMet')} placeholder="e.g. conference, dinner, referral" />
+            </div>
+          </div>
+        </Disclosure>
+      </div>
+
+      {/* ─── Step 3: Classification (disclosure) ─── */}
+      <div className="form-section">
+        <Disclosure
+          label="Classification"
+          hint="Skip on first save and come back after the first real conversation."
+          defaultOpen={hasClassification}
+        >
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Contact type</label>
+              <select value={form.type} onChange={set('type')}>
+                <option value="unclassified">Unclassified</option>
+                <optgroup label="Structural hole">
+                  <option value="client">Client</option>
+                  <option value="capital_provider">Capital provider (bank / investor)</option>
+                </optgroup>
+                <optgroup label="Ecosystem">
+                  <option value="partner">Partner / referrer</option>
+                  <option value="educational">Educational (university, research, training)</option>
+                  <option value="regulatory">Regulatory body</option>
+                  <option value="government">Government</option>
+                  <option value="institute">Institute / think-tank</option>
+                </optgroup>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Lead heat</label>
+              <select value={form.heat} onChange={set('heat')}>
+                <option value="">Not set</option>
+                <option value="hot">Hot: active interest</option>
+                <option value="warm">Warm: potential interest</option>
+                <option value="cold">Cold: just collecting</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Touch frequency</label>
+              <select value={form.frequency} onChange={set('frequency')}>
+                <option value="">Not set</option>
+                <option value="biannual">2x per year (strategic, most valuable)</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="monthly">Monthly</option>
+                <option value="asneeded">As needed</option>
+              </select>
+            </div>
+          </div>
+        </Disclosure>
+      </div>
+
+      {/* ─── Notes (always visible) ─── */}
+      <div className="form-section">
         <div className="form-group full">
           <label>Notes</label>
-          <textarea value={form.notes} onChange={set('notes')} placeholder="Mentioned exploring PE fund allocation in Q3..." />
+          <textarea
+            value={form.notes}
+            onChange={set('notes')}
+            placeholder="Any context worth remembering — interests, mandate, next step..."
+            rows={3}
+          />
         </div>
       </div>
-      <div className="form-actions">
-        <button className="btn-ghost" onClick={handleClear}>Clear</button>
-        <button className="btn-primary" disabled={saving} onClick={handleSubmit}>
-          {saving ? 'Saving...' : editingContact ? 'Update contact' : 'Save contact'}
-        </button>
-      </div>
-    </div>
+
+      <CardFooter>
+        <Button variant="ghost" onClick={handleClear}>
+          {editingContact ? 'Cancel edit' : 'Clear'}
+        </Button>
+        <Button variant="primary" loading={saving} onClick={handleSubmit}>
+          {saving
+            ? 'Saving'
+            : editingContact
+              ? 'Update contact'
+              : 'Save & add another'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
