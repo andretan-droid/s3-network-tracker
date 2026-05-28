@@ -21,6 +21,7 @@ import FollowUpQueue from './components/FollowUpQueue';
 import StructuralHoleMap from './components/StructuralHoleMap';
 import MeetingAudit from './components/MeetingAudit';
 import MeetingLog from './components/MeetingLog';
+import ErrorBoundary from './components/ErrorBoundary';
 import type { Contact, Interaction } from './types';
 import {
   LayoutDashboard, Users, UserPlus, Clock, Network, Flag, ClipboardList,
@@ -548,6 +549,7 @@ function AppContent() {
               Loading contacts from Excel workbook...
             </div>
           ) : (
+            <ErrorBoundary>
             <Routes>
               <Route
                 path="/"
@@ -619,6 +621,7 @@ function AppContent() {
               {/* Catch-all: anything unknown drops you back at the dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </ErrorBoundary>
           )}
         </div>
       </div>

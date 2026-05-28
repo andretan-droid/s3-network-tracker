@@ -6,24 +6,31 @@ import type { Contact, Interaction, ContactType, HeatLevel, Frequency, Interacti
 // Contacts: id | name | company | position | email | phoneMobile | phoneOffice | linkedin | type | heat | frequency | eventMet | notes | owners | dateAdded | lastTouched
 // Interactions: id | contactId | date | type | notes | loggedBy | category
 
+// Graph API returns mixed types (string | number | boolean | null) even though
+// the table is typed as string[][]. Coerce every cell to string at the boundary.
+function cell(v: unknown, fallback = ''): string {
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
+
 function parseContact(row: string[]): Contact {
   return {
-    id: row[0] || '',
-    name: row[1] || '',
-    company: row[2] || '',
-    position: row[3] || '',
-    email: row[4] || '',
-    phoneMobile: row[5] || '',
-    phoneOffice: row[6] || '',
-    linkedin: row[7] || '',
-    type: (row[8] || 'unclassified') as ContactType,
-    heat: (row[9] || '') as HeatLevel,
-    frequency: (row[10] || '') as Frequency,
-    eventMet: row[11] || '',
-    notes: row[12] || '',
-    owners: row[13] || '',
-    dateAdded: row[14] || '',
-    lastTouched: row[15] || '',
+    id: cell(row[0]),
+    name: cell(row[1]),
+    company: cell(row[2]),
+    position: cell(row[3]),
+    email: cell(row[4]),
+    phoneMobile: cell(row[5]),
+    phoneOffice: cell(row[6]),
+    linkedin: cell(row[7]),
+    type: (cell(row[8]) || 'unclassified') as ContactType,
+    heat: (cell(row[9])) as HeatLevel,
+    frequency: (cell(row[10])) as Frequency,
+    eventMet: cell(row[11]),
+    notes: cell(row[12]),
+    owners: cell(row[13]),
+    dateAdded: cell(row[14]),
+    lastTouched: cell(row[15]),
   };
 }
 
@@ -37,13 +44,13 @@ function contactToRow(c: Contact): string[] {
 
 function parseInteraction(row: string[]): Interaction {
   return {
-    id: row[0] || '',
-    contactId: row[1] || '',
-    date: row[2] || '',
-    type: (row[3] || 'meeting') as InteractionType,
-    notes: row[4] || '',
-    loggedBy: row[5] || '',
-    category: (row[6] || 'neither') as MeetingCategory,
+    id: cell(row[0]),
+    contactId: cell(row[1]),
+    date: cell(row[2]),
+    type: (cell(row[3]) || 'meeting') as InteractionType,
+    notes: cell(row[4]),
+    loggedBy: cell(row[5]),
+    category: (cell(row[6]) || 'neither') as MeetingCategory,
   };
 }
 

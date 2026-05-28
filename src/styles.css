@@ -1288,6 +1288,32 @@ body {
 .meeting-log-notes { color: var(--text); line-height: 1.5; }
 .meeting-log-by { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 
+/* ─── Error Boundary ────────────────────────────────────── */
+.error-boundary {
+  background: var(--surface);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  margin: 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.error-boundary h2 { font-size: var(--text-lg); font-weight: 600; color: var(--danger); }
+.error-boundary-msg { font-size: var(--text-sm); color: var(--text-secondary); font-family: monospace; white-space: pre-wrap; }
+.error-boundary-reset {
+  align-self: flex-start;
+  padding: 7px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  font-family: inherit;
+}
+.error-boundary-reset:hover { background: var(--danger); color: #fff; }
+
 /* ─── Duplicates Banner ─────────────────────────────────── */
 .dupes-banner {
   background: var(--warn-bg);
