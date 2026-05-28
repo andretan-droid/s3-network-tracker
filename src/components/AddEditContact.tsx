@@ -179,12 +179,12 @@ export default function AddEditContact({ editingContact, currentUser, onSave, on
         lastTouched: editingContact.lastTouched,
       });
     } else {
-      setForm({ ...emptyForm, owners: currentUser });
+      setForm({ ...emptyForm });
     }
   }, [editingContact, currentUser]);
 
   const handleClear = () => {
-    setForm({ ...emptyForm, owners: currentUser });
+    setForm({ ...emptyForm });
     onClear();
   };
 

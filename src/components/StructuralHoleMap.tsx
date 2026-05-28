@@ -39,13 +39,14 @@ import NetworkMap2D from './NetworkMap2D';
 import DirectorBrief from './DirectorBrief';
 import OrgDetailPanel from './OrgDetailPanel';
 import { TypeTag, HeatDot } from './ui';
-import { ChevronRight } from './ui/icons';
+import { ChevronRight, Pencil } from './ui/icons';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   contacts: Contact[];
   onBulkUpdate: (updates: Contact[], onProgress?: (done: number, total: number) => void) => Promise<void>;
+  onEdit: (id: string) => void;
 }
 
 // ── Bulk-edit field definitions (simulated; real bulk edit is in App.tsx) ────
@@ -179,7 +180,7 @@ const applyBtn: CSSProperties = {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export default function StructuralHoleMap({ contacts, onBulkUpdate }: Props) {
+export default function StructuralHoleMap({ contacts, onBulkUpdate, onEdit }: Props) {
 
   // ── Filter + grouping state ─────────────────────────────────────────────────
   const [query, setQuery]               = useState('');
@@ -616,6 +617,17 @@ export default function StructuralHoleMap({ contacts, onBulkUpdate }: Props) {
                         )}
                         <HeatDot heat={c.heat} />
                         <TypeTag type={c.type} />
+                        <button
+                          onClick={e => { e.stopPropagation(); onEdit(c.id); }}
+                          style={{
+                            ...miniBtn,
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            flexShrink: 0,
+                          }}
+                          title={`Edit ${c.name}`}
+                        >
+                          <Pencil size={10} /> Edit
+                        </button>
                       </div>
                     );
                   })}

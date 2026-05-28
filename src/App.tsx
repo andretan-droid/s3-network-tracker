@@ -42,8 +42,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/',                 label: 'Dashboard',       icon: <LayoutDashboard />, end: true },
-  { to: '/contacts',         label: 'Contacts',        icon: <Users />,           end: true },
-  { to: '/contacts/new',     label: 'Add Contact',     icon: <UserPlus />,        alsoActiveOn: ['/contacts/'] },
+  { to: '/contacts',         label: 'Contacts',        icon: <Users />,           end: true, alsoActiveOn: ['/contacts/'] },
+  { to: '/contacts/new',     label: 'Add Contact',     icon: <UserPlus />,        end: true },
   { to: '/follow-ups',       label: 'Follow-ups',      icon: <Clock /> },
   { to: '/structural-hole',  label: 'Structural Hole', icon: <Network /> },
   { to: '/audit',            label: 'Meeting Audit',   icon: <Flag /> },
@@ -66,11 +66,18 @@ function AddEditContactRoute({ mode, contacts, currentUser, onSave, onUpdate }: 
   const navigate = useNavigate();
 
   if (mode === 'edit') {
-    // While initial load is still in flight contacts will be []. Hold for that case
-    // by not redirecting until we know we have data.
     const editing = id ? contacts.find(c => c.id === id) : null;
-    if (id && contacts.length > 0 && !editing) {
-      // Bad deep link or row deleted by another user
+    // Contacts still loading — show spinner rather than a blank add form
+    if (contacts.length === 0) {
+      return (
+        <div className="loading">
+          <span className="spinner" />
+          Loading contact...
+        </div>
+      );
+    }
+    // Contact not found after load — bad link or deleted by another user
+    if (id && !editing) {
       return <Navigate to="/contacts" replace />;
     }
     return (
@@ -572,7 +579,7 @@ function AppContent() {
               />
               <Route
                 path="/structural-hole"
-                element={<StructuralHoleMap contacts={filteredContacts} onBulkUpdate={handleBulkUpdate} />}
+                element={<StructuralHoleMap contacts={filteredContacts} onBulkUpdate={handleBulkUpdate} onEdit={handleEdit} />}
               />
               <Route
                 path="/audit"
