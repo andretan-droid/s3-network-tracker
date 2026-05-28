@@ -2,11 +2,13 @@ import { useState } from 'react';
 import type { Interaction, MeetingCategory, InteractionType } from '../types';
 import { STAFF_ROSTER } from '../types';
 import { Button, useDialog } from './ui';
-import { Plus, X } from './ui/icons';
+import { Plus, X, Pencil, Trash2, Check } from './ui/icons';
 
 interface Props {
   interactions: Interaction[];
   onLogMeeting: (data: Omit<Interaction, 'id'>) => Promise<void>;
+  onEditInteraction: (i: Interaction) => Promise<void>;
+  onDeleteInteraction: (id: string) => Promise<void>;
   currentUser: string;
 }
 
@@ -129,8 +131,104 @@ function WeeklyReportForm({ onSubmit, currentUser }: {
   );
 }
 
-export default function MeetingAudit({ interactions, onLogMeeting, currentUser }: Props) {
+/* ── Inline row editor ─────────────────────────────────── */
+
+function InlineEditRow({
+  interaction,
+  onSave,
+  onCancel,
+}: {
+  interaction: Interaction;
+  onSave: (updated: Interaction) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [date, setDate] = useState(interaction.date);
+  const [type, setType] = useState<InteractionType>(interaction.type);
+  const [category, setCategory] = useState<MeetingCategory>(interaction.category);
+  const [notes, setNotes] = useState(interaction.notes);
+  const [loggedBy, setLoggedBy] = useState(interaction.loggedBy);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave({ ...interaction, date, type, category, notes: notes.trim(), loggedBy });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="audit-edit-row">
+      <div className="audit-edit-fields">
+        <input
+          type="date"
+          className="audit-edit-input"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+        />
+        <select
+          className="audit-edit-select"
+          value={type}
+          onChange={e => setType(e.target.value as InteractionType)}
+        >
+          <option value="meeting">Meeting</option>
+          <option value="call">Call</option>
+          <option value="email">Email</option>
+          <option value="event">Event</option>
+        </select>
+        <select
+          className="audit-edit-select"
+          value={category}
+          onChange={e => setCategory(e.target.value as MeetingCategory)}
+        >
+          <option value="client_side">Client-side</option>
+          <option value="capital_side">Capital-side</option>
+          <option value="internal">Internal</option>
+          <option value="neither">Neither</option>
+        </select>
+        <select
+          className="audit-edit-select"
+          value={loggedBy}
+          onChange={e => setLoggedBy(e.target.value)}
+        >
+          {STAFF_ROSTER.map(s => (
+            <option key={s.id} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <textarea
+        className="audit-edit-notes"
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        rows={2}
+        placeholder="Meeting description..."
+      />
+      <div className="audit-edit-actions">
+        <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
+          <Check size={12} /> Save
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          <X size={12} /> Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main component ────────────────────────────────────── */
+
+export default function MeetingAudit({
+  interactions,
+  onLogMeeting,
+  onEditInteraction,
+  onDeleteInteraction,
+  currentUser,
+}: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const dialog = useDialog();
+
   const meetings = interactions.filter(i => i.type === 'meeting' || i.type === 'event' || i.type === 'call');
 
   const counts: Record<MeetingCategory, number> = {
@@ -159,6 +257,31 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
     if (m.category === 'client_side' || m.category === 'capital_side') entry.sh++;
     byStaff.set(m.loggedBy, entry);
   });
+
+  const handleDelete = async (i: Interaction) => {
+    const ok = await dialog.confirm({
+      title: 'Delete this interaction?',
+      body: (
+        <>
+          Remove <strong>{i.notes || 'this entry'}</strong> logged by {i.loggedBy} on {i.date}?
+          This cannot be undone.
+        </>
+      ),
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await onDeleteInteraction(i.id);
+    } catch (e: unknown) {
+      await dialog.alert({
+        title: 'Delete failed',
+        body: e instanceof Error ? e.message : String(e),
+        tone: 'danger',
+      });
+    }
+  };
 
   return (
     <div className="audit-wrap">
@@ -265,13 +388,42 @@ export default function MeetingAudit({ interactions, onLogMeeting, currentUser }
           </h3>
           <div className="audit-list">
             {sorted.slice(0, 50).map(i => (
-              <div key={i.id} className="audit-row">
-                <span className={`badge ${categoryBadge[i.category]}`}>
-                  {categoryLabels[i.category]}
-                </span>
-                <span className="audit-row-name">{i.notes || 'Touch logged'}</span>
-                <span className="audit-row-by">{i.loggedBy}</span>
-                <span className="audit-row-date">{i.date}</span>
+              <div key={i.id}>
+                {editingId === i.id ? (
+                  <InlineEditRow
+                    interaction={i}
+                    onSave={async updated => {
+                      await onEditInteraction(updated);
+                      setEditingId(null);
+                    }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <div className="audit-row">
+                    <span className={`badge ${categoryBadge[i.category]}`}>
+                      {categoryLabels[i.category]}
+                    </span>
+                    <span className="audit-row-name">{i.notes || 'Touch logged'}</span>
+                    <span className="audit-row-by">{i.loggedBy}</span>
+                    <span className="audit-row-date">{i.date}</span>
+                    <div className="audit-row-actions">
+                      <button
+                        className="audit-action-btn"
+                        title="Edit"
+                        onClick={() => setEditingId(i.id)}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="audit-action-btn audit-action-btn--danger"
+                        title="Delete"
+                        onClick={() => handleDelete(i)}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

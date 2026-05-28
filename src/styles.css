@@ -1099,6 +1099,194 @@ body {
 .audit-row-name    { font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .audit-row-date    { font-size: var(--text-xs); color: var(--text-muted); flex-shrink: 0; }
 .audit-row-by      { font-size: var(--text-xs); color: var(--text-muted); flex-shrink: 0; }
+.audit-row-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+.audit-row:hover .audit-row-actions { opacity: 1; }
+.audit-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.audit-action-btn:hover { background: var(--surface-raise); color: var(--text); }
+.audit-action-btn--danger:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* Inline edit row */
+.audit-edit-row {
+  background: var(--surface);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.audit-edit-fields {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.audit-edit-input,
+.audit-edit-select {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}
+.audit-edit-input:focus,
+.audit-edit-select:focus { border-color: var(--border-focus); background: var(--surface); }
+.audit-edit-notes {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+}
+.audit-edit-notes:focus { border-color: var(--border-focus); background: var(--surface); }
+.audit-edit-actions { display: flex; gap: 8px; }
+
+/* ─── Meeting Log ────────────────────────────────────────── */
+.meeting-log-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.meeting-log-header { margin-bottom: 20px; }
+.meeting-log-header h2 { font-size: var(--text-lg); font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.meeting-log-desc { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; max-width: 560px; }
+
+.meeting-log-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+.meeting-log-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.meeting-log-filter-group label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.meeting-log-filter-group input,
+.meeting-log-filter-group select {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}
+.meeting-log-filter-group input:focus,
+.meeting-log-filter-group select:focus { border-color: var(--border-focus); }
+
+.meeting-log-stats {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.meeting-log-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-alt);
+}
+.meeting-log-stat:last-child { border-right: none; }
+.meeting-log-stat--highlight { background: var(--sage-panel); }
+.meeting-log-stat-value { font-size: var(--text-lg); font-weight: 700; color: var(--text); line-height: 1; }
+.meeting-log-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.meeting-log-staff-section { margin-bottom: 24px; }
+.meeting-log-staff-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.meeting-log-staff-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+}
+.meeting-log-staff-name { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
+.meeting-log-staff-role { font-size: var(--text-xs); color: var(--text-muted); }
+.meeting-log-staff-count { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 4px; }
+.meeting-log-staff-sh { font-size: var(--text-xs); color: var(--capital); font-weight: 600; }
+
+.meeting-log-months { display: flex; flex-direction: column; gap: 24px; }
+.meeting-log-month {}
+.meeting-log-month-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+.meeting-log-month-label { font-size: var(--text-md); font-weight: 700; color: var(--text); }
+.meeting-log-month-count { font-size: var(--text-xs); color: var(--text-muted); }
+
+.meeting-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.meeting-log-table th {
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+.meeting-log-row {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.1s;
+}
+.meeting-log-row:hover { background: var(--surface-alt); }
+.meeting-log-row td { padding: 8px 10px; vertical-align: top; }
+.meeting-log-date { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.meeting-log-type { font-size: var(--text-xs); color: var(--text-secondary); text-transform: capitalize; }
+.meeting-log-notes { color: var(--text); line-height: 1.5; }
+.meeting-log-by { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 
 /* ─── Duplicates Banner ─────────────────────────────────── */
 .dupes-banner {

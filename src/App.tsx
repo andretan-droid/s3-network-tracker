@@ -6,7 +6,7 @@ import { loginRequest } from './services/authConfig';
 import { initGraphClient } from './services/graphClient';
 import {
   addContact, updateContact, removeContact, markContactTouched,
-  addInteraction, mergeAllDuplicates,
+  addInteraction, updateInteraction, deleteInteraction, mergeAllDuplicates,
 } from './services/excelService';
 import { useContacts } from './hooks/useContacts';
 import { useInteractions } from './hooks/useInteractions';
@@ -20,9 +20,10 @@ import AddEditContact from './components/AddEditContact';
 import FollowUpQueue from './components/FollowUpQueue';
 import StructuralHoleMap from './components/StructuralHoleMap';
 import MeetingAudit from './components/MeetingAudit';
+import MeetingLog from './components/MeetingLog';
 import type { Contact, Interaction } from './types';
 import {
-  LayoutDashboard, Users, UserPlus, Clock, Network, Flag,
+  LayoutDashboard, Users, UserPlus, Clock, Network, Flag, ClipboardList,
   Menu, X, RefreshCw, LogOut, GitBranch, Target, GraduationCap, Sparkles,
 } from './components/ui/icons';
 
@@ -47,6 +48,7 @@ const NAV: NavItem[] = [
   { to: '/follow-ups',       label: 'Follow-ups',      icon: <Clock /> },
   { to: '/structural-hole',  label: 'Structural Hole', icon: <Network /> },
   { to: '/audit',            label: 'Meeting Audit',   icon: <Flag /> },
+  { to: '/meeting-log',     label: 'Meeting Log',     icon: <ClipboardList /> },
 ];
 
 /* ────────────────────────────────────────────────────────────
@@ -236,6 +238,24 @@ function AppContent() {
     async (data: Omit<Interaction, 'id'>) => {
       await sync.track(addInteraction(data));
       toast('Meeting logged successfully.');
+      refreshInteractions();
+    },
+    [sync, toast, refreshInteractions]
+  );
+
+  const handleEditInteraction = useCallback(
+    async (interaction: Interaction) => {
+      await sync.track(updateInteraction(interaction));
+      toast('Interaction updated.');
+      refreshInteractions();
+    },
+    [sync, toast, refreshInteractions]
+  );
+
+  const handleDeleteInteraction = useCallback(
+    async (id: string) => {
+      await sync.track(deleteInteraction(id));
+      toast('Interaction deleted.');
       refreshInteractions();
     },
     [sync, toast, refreshInteractions]
@@ -586,9 +606,15 @@ function AppContent() {
                   <MeetingAudit
                     interactions={filteredInteractions}
                     onLogMeeting={handleLogMeeting}
+                    onEditInteraction={handleEditInteraction}
+                    onDeleteInteraction={handleDeleteInteraction}
                     currentUser={userName}
                   />
                 }
+              />
+              <Route
+                path="/meeting-log"
+                element={<MeetingLog interactions={filteredInteractions} />}
               />
               {/* Catch-all: anything unknown drops you back at the dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />

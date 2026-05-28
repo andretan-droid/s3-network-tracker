@@ -132,10 +132,12 @@ function categorizeByContactType(type: ContactType): MeetingCategory {
 // ─── INTERACTIONS ────────────────────────────────────────────
 
 let interactionsCache: Interaction[] = [];
+let interactionsRowMap: Map<string, number> = new Map();
 
 export async function fetchInteractions(): Promise<Interaction[]> {
   const rows = await readTable('Interactions');
   interactionsCache = rows.map(parseInteraction);
+  interactionsRowMap = new Map(interactionsCache.map((i, idx) => [i.id, idx]));
   return interactionsCache;
 }
 
@@ -143,7 +145,23 @@ export async function addInteraction(data: Omit<Interaction, 'id'>): Promise<Int
   const interaction: Interaction = { ...data, id: uuid() };
   await addTableRow('Interactions', interactionToRow(interaction));
   interactionsCache.push(interaction);
+  interactionsRowMap.set(interaction.id, interactionsCache.length - 1);
   return interaction;
+}
+
+export async function updateInteraction(interaction: Interaction): Promise<void> {
+  const idx = interactionsRowMap.get(interaction.id);
+  if (idx === undefined) throw new Error(`Interaction "${interaction.id}" not found in cache`);
+  await updateTableRow('Interactions', idx, interactionToRow(interaction));
+  interactionsCache[idx] = interaction;
+}
+
+export async function deleteInteraction(id: string): Promise<void> {
+  const idx = interactionsRowMap.get(id);
+  if (idx === undefined) throw new Error('Interaction not found in cache');
+  await deleteTableRow('Interactions', idx);
+  interactionsCache.splice(idx, 1);
+  interactionsRowMap = new Map(interactionsCache.map((i, n) => [i.id, n]));
 }
 
 export function getCachedContacts(): Contact[] {

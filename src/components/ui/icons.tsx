@@ -11,6 +11,7 @@ export {
   Clock,
   Network,
   Flag,
+  ClipboardList,
 
   // Actions
   Check,
