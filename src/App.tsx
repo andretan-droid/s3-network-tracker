@@ -572,7 +572,7 @@ function AppContent() {
               />
               <Route
                 path="/structural-hole"
-                element={<StructuralHoleMap contacts={filteredContacts} />}
+                element={<StructuralHoleMap contacts={filteredContacts} onBulkUpdate={handleBulkUpdate} />}
               />
               <Route
                 path="/audit"

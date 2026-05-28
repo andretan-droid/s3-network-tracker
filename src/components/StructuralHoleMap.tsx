@@ -45,6 +45,7 @@ import { ChevronRight } from './ui/icons';
 
 interface Props {
   contacts: Contact[];
+  onBulkUpdate: (updates: Contact[], onProgress?: (done: number, total: number) => void) => Promise<void>;
 }
 
 // ── Bulk-edit field definitions (simulated; real bulk edit is in App.tsx) ────
@@ -178,7 +179,7 @@ const applyBtn: CSSProperties = {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export default function StructuralHoleMap({ contacts }: Props) {
+export default function StructuralHoleMap({ contacts, onBulkUpdate }: Props) {
 
   // ── Filter + grouping state ─────────────────────────────────────────────────
   const [query, setQuery]               = useState('');
@@ -329,27 +330,20 @@ export default function StructuralHoleMap({ contacts }: Props) {
     setBulkValue(BULK_OPTIONS[f][0].value);
   };
 
-  /**
-   * Bulk operation simulation. In production this would batch calls to
-   * `updateContact()` against the SharePoint Excel workbook via the
-   * Microsoft Graph API (the main Contacts tab already does the real version
-   * via App.tsx's `handleBulkUpdate`).
-   */
-  const runBulkSim = useCallback(async () => {
-    const total = selectedIds.size;
-    if (!total) return;
+  const runBulkUpdate = useCallback(async () => {
+    if (!selectedIds.size) return;
     setBulkProgress(0);
-    const steps = 60;
-    const delay = Math.max(8, Math.round(1200 / steps));
-    for (let i = 1; i <= steps; i++) {
-      await new Promise<void>(r => setTimeout(r, delay));
-      setBulkProgress(Math.round((i / steps) * 100));
-    }
+    const toUpdate = contacts
+      .filter(c => selectedIds.has(c.id))
+      .map(c => ({ ...c, [bulkField]: bulkValue }));
+    await onBulkUpdate(toUpdate, (done, total) => {
+      setBulkProgress(Math.round((done / total) * 100));
+    });
     setBulkProgress(100);
     await new Promise<void>(r => setTimeout(r, 1000));
     setBulkProgress(null);
     setSelectedIds(new Set());
-  }, [selectedIds]);
+  }, [selectedIds, contacts, bulkField, bulkValue, onBulkUpdate]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -501,7 +495,7 @@ export default function StructuralHoleMap({ contacts }: Props) {
               </div>
             ) : (
               <>
-                <button onClick={runBulkSim} style={applyBtn}>
+                <button onClick={runBulkUpdate} style={applyBtn}>
                   Apply to {selectedIds.size.toLocaleString()}
                 </button>
                 <button onClick={deselectAll} style={{ ...miniBtn, color: 'var(--danger)', borderColor: 'var(--danger-border)' }}>
